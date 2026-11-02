@@ -8,11 +8,12 @@
 
 | 과제 | 내용 | 모델 | 상위 결과 |
 |---|---|--:|---|
-| [桜の庭 · sakura-no-niwa](sakura-no-niwa/) | 단일 HTML Three.js 복셀 정원 — 5층 목탑, 토리이, 잉어 연못, 꽃잎, 낮/밤 순환 | 8 | gpt-6.1-sol, claude-opus-5.5, claude-sonnet-5.5 |
+| [桜の庭 · sakura-no-niwa](sakura-no-niwa/) | 단일 HTML Three.js 복셀 정원 — 5층 목탑, 토리이, 잉어 연못, 꽃잎, 낮/밤 순환 | 10 (결과물 13) | gpt-6.1-sol (CLI), gpt-6.1-terra (Codex 앱), claude-opus-5.5, claude-sonnet-5.5 |
+| [tetris](tetris/) | 단일 HTML 테트리스 — 홀드·넥스트 패널 포함 | 1 | 사양서·모델 기록 없음 |
 
 ## 규칙
 
 - 과제마다 폴더 하나. 그 안에 `SPEC.md`(사양서), `prompt.txt`(지시문), `README.md`(분석 리포트), 결과물이 들어갑니다.
-- 결과물 파일 이름은 `<모델>-<추론강도>.html`입니다. 이름순으로 정렬하면 제공사별로 묶입니다.
+- 결과물 파일 이름은 `<모델>-<추론강도>.html`입니다. 이름순으로 정렬하면 제공사별로 묶입니다. 같은 모델을 다른 경로로 돌렸으면 `codexapp-`처럼 경로를 앞에 붙입니다.
 - 검증자가 고친 사본은 `-patched`를 붙여 원본과 구분합니다. 모델 출력이 아닙니다.
 - 실행 로그는 커밋하지 않습니다.
