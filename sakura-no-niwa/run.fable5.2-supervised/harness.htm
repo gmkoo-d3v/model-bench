@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Audit harness (2026-11-18). Loads one entry with requestAnimationFrame replaced by a queue that
+     audit_probe.js pumps itself, so measurements do not depend on the Browser pane being visible
+     (a hidden pane stops or throttles requestAnimationFrame).
+     Usage: /run.fable5.2-supervised/harness.htm?f=<entry>.html
+     (named .htm so the repo's "!*.html" rule does not pick it up)
+     The entry's HTML is written into this document unchanged. -->
+<meta charset="utf-8">
+<title>audit harness</title>
+<script>
+(async () => {
+  const q = [];
+  let id = 0;
+  window.requestAnimationFrame = cb => { q.push([++id, cb]); return id; };
+  window.cancelAnimationFrame = i => { const k = q.findIndex(e => e[0] === i); if (k >= 0) q.splice(k, 1); };
+  window.__pumped = 0;
+  window.__pump = t => {
+    const batch = q.splice(0, q.length);
+    for (const [, cb] of batch) { try { cb(t === undefined ? performance.now() : t); } catch (e) { console.error(e); } }
+    window.__pumped += batch.length ? 1 : 0;
+    return batch.length;
+  };
+  const f = new URLSearchParams(location.search).get('f');
+  if (!f || !/^[\w.\-]+\.html$/.test(f)) { document.title = 'audit harness: bad ?f='; return; }
+  window.__entry = f;
+  const html = await (await fetch('/' + f, { cache: 'no-store' })).text();
+  document.open();
+  document.write(html);
+  document.close();
+})();
+</script>

@@ -1,0 +1,64 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hi</title>
+<style>
+  :root {
+    --bg: #0e0f13;
+    --bg-glow: #1b1d24;
+    --ink: #f5efe4;
+    --accent: #ff8a5c;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at 50% 42%, var(--bg-glow) 0%, var(--bg) 72%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+
+  .hi {
+    margin: 0;
+    font-size: clamp(6rem, 38vmin, 26rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.045em;
+    color: var(--ink);
+    text-shadow: 0 0 70px rgba(255, 138, 92, 0.22);
+    animation: rise 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.12em) scale(0.96);
+      filter: blur(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hi { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <h1 class="hi">hi</h1>
+</body>
+</html>
+```

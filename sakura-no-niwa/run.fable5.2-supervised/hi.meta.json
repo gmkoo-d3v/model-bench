@@ -1,0 +1,45 @@
+{
+  "model": "localllm",
+  "finish_reason": "stop",
+  "done_marker": true,
+  "events": 280,
+  "bad_events": 0,
+  "content_chars": 1318,
+  "content_lines": 64,
+  "reasoning_chars": 2103,
+  "usage": {
+    "prompt_tokens": 164,
+    "completion_tokens": 1087,
+    "total_tokens": 1251,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 625
+    }
+  },
+  "extra": {
+    "tensorfold": {
+      "enable_thinking": true,
+      "reasoning_effort": null,
+      "engine": "lanes",
+      "tokens_per_second": 50.44130211100727,
+      "seconds": 22.005073637,
+      "prefill_seconds": 0.455580611,
+      "prefill_widths": [],
+      "prefill_raised": [],
+      "time_to_first_token": 0.476959495,
+      "sampling": "exact",
+      "drafts": true,
+      "token_sha": "c02fcf14d079",
+      "min_rows": 1
+    },
+    "speculative": {
+      "rounds": 277,
+      "drafted": 1029,
+      "accepted": 810,
+      "acceptance_rate": 0.7871720116618076,
+      "tokens_per_round": 3.9241877256317688
+    }
+  }
+}

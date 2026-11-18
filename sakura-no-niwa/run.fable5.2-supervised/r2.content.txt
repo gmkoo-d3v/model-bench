@@ -1,0 +1,614 @@
+### EDIT 1: water opacity
+<<<<<<< FIND
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.72,
+  depthWrite: false
+});
+=======
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.6,
+  depthWrite: false
+});
+>>>>>>> REPLACE
+
+### EDIT 2: firefly size
+<<<<<<< FIND
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.9,
+  sizeAttenuation: true,
+=======
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 1.5,
+  sizeAttenuation: true,
+>>>>>>> REPLACE
+
+### EDIT 3: ground and white colours
+<<<<<<< FIND
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+=======
+const groundColor = new THREE.Color(0x8c8172);
+const whiteColor = new THREE.Color(0xffffff);
+const tmpColor = new THREE.Color();
+>>>>>>> REPLACE
+
+### EDIT 4: fill light declaration
+<<<<<<< FIND
+let sun = null;
+let hemi = null;
+let moon = null;
+
+let staticMesh = null;
+=======
+let sun = null;
+let hemi = null;
+let moon = null;
+let fill = null;
+
+let staticMesh = null;
+>>>>>>> REPLACE
+
+### EDIT 5: initial layout pond fields
+<<<<<<< FIND
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+=======
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: [],
+    interior: new Set(),
+    centroid: { x: 0, z: 0 }
+  },
+>>>>>>> REPLACE
+
+### EDIT 6: resetLayout pond fields
+<<<<<<< FIND
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+=======
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: [],
+      interior: new Set(),
+      centroid: { x: 0, z: 0 }
+    },
+>>>>>>> REPLACE
+
+### EDIT 7: computePond pond fields
+<<<<<<< FIND
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: []
+  };
+=======
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: [],
+    interior: new Set(),
+    centroid: { x: 0, z: 0 }
+  };
+>>>>>>> REPLACE
+
+### EDIT 8: applyPond interior and centroid
+<<<<<<< FIND
+function applyPond(rng) {
+  const pond = layout.pond;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+}
+=======
+function applyPond(rng) {
+  const pond = layout.pond;
+  const interiorKeys = new Set();
+  let sumX = 0;
+  let sumZ = 0;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    sumX += x;
+    sumZ += z;
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      interiorKeys.add(x + ',' + z);
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+
+  pond.interior = interiorKeys;
+
+  if (pond.cellList.length > 0) {
+    pond.centroid = {
+      x: sumX / pond.cellList.length,
+      z: sumZ / pond.cellList.length
+    };
+  } else {
+    pond.centroid = { x: pond.px, z: pond.pz };
+  }
+}
+>>>>>>> REPLACE
+
+### EDIT 9: koi scales, centroid centre, loop validation
+<<<<<<< FIND
+function buildKoiData(rng) {
+  const fishCount = 2 + (rng() < 0.5 ? 0 : 1);
+  const fish = [];
+  const segments = [];
+  const scales = [0.55, 0.6, 0.5, 0.4, 0.3];
+
+  for (let fishIndex = 0; fishIndex < fishCount; fishIndex++) {
+    const cx = layout.pond.px + (rng() * 2 - 1);
+    const cz = layout.pond.pz + (rng() * 2 - 1);
+
+    const maxA = Math.max(1.8, layout.pond.rx - 2.2);
+    const a = 1.8 + rng() * Math.max(0, maxA - 1.8);
+
+    const maxB = Math.max(2.5, layout.pond.rz - 3);
+    const b = 2.5 + rng() * Math.max(0, maxB - 2.5);
+
+    const omega = 0.25 + rng() * 0.15;
+    const direction = rng() < 0.5 ? 1 : -1;
+    const phase0 = rng() * TAU;
+    const whiteIndex = 1 + Math.floor(rng() * 3);
+
+    fish.push({
+      cx,
+      cz,
+      a,
+      b,
+      omega,
+      direction,
+      phase0
+    });
+
+    for (let segmentIndex = 0; segmentIndex < 5; segmentIndex++) {
+      const color = segmentIndex === whiteIndex
+        ? KOI_WHITE
+        : KOI_COLORS[Math.floor(rng() * KOI_COLORS.length)];
+
+      segments.push({
+        fish: fishIndex,
+        scale: scales[segmentIndex],
+        color,
+        delay: segmentIndex * 0.22
+      });
+    }
+  }
+
+  layout.koi = { fish, segments };
+}
+=======
+function buildKoiData(rng) {
+  const fishCount = 2 + (rng() < 0.5 ? 0 : 1);
+  const fish = [];
+  const segments = [];
+  const scales = [0.7, 0.8, 0.65, 0.5, 0.35];
+
+  for (let fishIndex = 0; fishIndex < fishCount; fishIndex++) {
+    const cx = layout.pond.centroid.x + (rng() * 1.6 - 0.8);
+    const cz = layout.pond.centroid.z + (rng() * 1.6 - 0.8);
+
+    const maxA = Math.max(1.8, layout.pond.rx - 2.2);
+    const a = 1.8 + rng() * Math.max(0, maxA - 1.8);
+
+    const maxB = Math.max(2.5, layout.pond.rz - 3);
+    const b = 2.5 + rng() * Math.max(0, maxB - 2.5);
+
+    let loopA = a;
+    let loopB = b;
+    let validLoop = false;
+
+    for (let attempt = 0; attempt < 14; attempt++) {
+      validLoop = true;
+      for (let sample = 0; sample < 64; sample++) {
+        const phase = sample / 64 * TAU;
+        const sampleX = Math.round(cx + loopA * Math.cos(phase));
+        const sampleZ = Math.round(cz + loopB * Math.sin(phase));
+        if (!layout.pond.interior.has(sampleX + ',' + sampleZ)) {
+          validLoop = false;
+          break;
+        }
+      }
+      if (validLoop) {
+        break;
+      }
+      loopA = Math.max(1.0, loopA * 0.88);
+      loopB = Math.max(1.2, loopB * 0.88);
+    }
+
+    if (!validLoop) {
+      loopA = Math.max(1.0, loopA);
+      loopB = Math.max(1.2, loopB);
+    }
+
+    const omega = 0.25 + rng() * 0.15;
+    const direction = rng() < 0.5 ? 1 : -1;
+    const phase0 = rng() * TAU;
+    const whiteIndex = 1 + Math.floor(rng() * 3);
+
+    fish.push({
+      cx,
+      cz,
+      a: loopA,
+      b: loopB,
+      omega,
+      direction,
+      phase0
+    });
+
+    for (let segmentIndex = 0; segmentIndex < 5; segmentIndex++) {
+      const color = segmentIndex === whiteIndex
+        ? KOI_WHITE
+        : KOI_COLORS[Math.floor(rng() * KOI_COLORS.length)];
+
+      segments.push({
+        fish: fishIndex,
+        scale: scales[segmentIndex],
+        color,
+        delay: segmentIndex * 0.22
+      });
+    }
+  }
+
+  layout.koi = { fish, segments };
+}
+>>>>>>> REPLACE
+
+### EDIT 10: koi swim height
+<<<<<<< FIND
+    dummy.position.set(x, -0.42, z);
+    dummy.rotation.set(0, yaw, 0);
+=======
+    dummy.position.set(x, -0.08, z);
+    dummy.rotation.set(0, yaw, 0);
+>>>>>>> REPLACE
+
+### EDIT 11: hemisphere light in init
+<<<<<<< FIND
+  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x6b5a45, 1.5);
+=======
+  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x8c8172, 1.1);
+>>>>>>> REPLACE
+
+### EDIT 12: fill light in init
+<<<<<<< FIND
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+=======
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  fill = new THREE.DirectionalLight(0xffffff, 0);
+  fill.castShadow = false;
+  fill.target.position.set(0, 0, 0);
+  scene.add(fill);
+  scene.add(fill.target);
+
+  glowTexture = makeGlowTexture();
+>>>>>>> REPLACE
+
+### EDIT 13: applyTime day factor and sun
+<<<<<<< FIND
+  const dayFactor = smoothstep(-0.1, 0.25, sinAngle);
+  sun.intensity = 3.0 * dayFactor;
+
+  const warmMix = smoothstep(-0.05, 0.65, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+=======
+  const dayFactor = smoothstep(-0.22, 0.22, sinAngle);
+  sun.intensity = 2.4 * dayFactor;
+
+  const warmMix = smoothstep(0.05, 0.6, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+>>>>>>> REPLACE
+
+### EDIT 14: applyTime hemisphere and fill
+<<<<<<< FIND
+  hemi.intensity = lerp(0.45, 1.5, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky);
+  hemi.groundColor.copy(groundColor);
+=======
+  hemi.intensity = lerp(0.5, 1.1, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky).lerp(whiteColor, 0.35);
+  hemi.groundColor.copy(groundColor);
+
+  fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);
+  fill.target.position.set(0, 0, 0);
+  fill.color.copy(sky).lerp(whiteColor, 0.6);
+  fill.intensity = lerp(0.15, 0.9, dayFactor);
+>>>>>>> REPLACE
+
+### EDIT 15: pagoda and pond presets
+<<<<<<< FIND
+  presets.push({
+    pos: new THREE.Vector3(29, 21, 42),
+    target: new THREE.Vector3(0, 16, 0)
+  });
+
+  presets.push({
+    pos: new THREE.Vector3(layout.pond.px + 15, 16, layout.pond.pz + 14),
+    target: new THREE.Vector3(layout.pond.px, 0.5, layout.pond.pz)
+  });
+=======
+  presets.push({
+    pos: new THREE.Vector3(31, 22, 45),
+    target: new THREE.Vector3(0, 16.5, 0)
+  });
+
+  presets.push({
+    pos: new THREE.Vector3(layout.pond.px + 17, 18, layout.pond.pz + 16),
+    target: new THREE.Vector3(layout.pond.px, 0.5, layout.pond.pz)
+  });
+>>>>>>> REPLACE
+
+### EDIT 16: hide petals near camera
+<<<<<<< FIND
+    dummy.position.set(petalPos[i3], petalPos[i3 + 1], petalPos[i3 + 2]);
+    dummy.rotation.set(petalRot[i3], petalRot[i3 + 1], petalRot[i3 + 2]);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    petalMesh.setMatrixAt(i, dummy.matrix);
+=======
+    dummy.position.set(petalPos[i3], petalPos[i3 + 1], petalPos[i3 + 2]);
+    dummy.rotation.set(petalRot[i3], petalRot[i3 + 1], petalRot[i3 + 2]);
+    const dx = petalPos[i3] - camera.position.x;
+    const dy = petalPos[i3 + 1] - camera.position.y;
+    const dz = petalPos[i3 + 2] - camera.position.z;
+    if (dx * dx + dy * dy + dz * dz < 49) {
+      dummy.scale.set(0, 0, 0);
+    } else {
+      dummy.scale.set(1, 1, 1);
+    }
+    dummy.updateMatrix();
+    petalMesh.setMatrixAt(i, dummy.matrix);
+>>>>>>> REPLACE
+
+### EDIT 17: speed label CSS
+<<<<<<< FIND
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+=======
+  .speed-label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #cfd8e6;
+  }
+
+  .play-row .val {
+    min-width: 22px;
+  }
+
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 88px;
+    white-space: nowrap;
+  }
+>>>>>>> REPLACE
+
+### EDIT 18: speed label markup
+<<<<<<< FIND
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+=======
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <span class="speed-label">speed</span>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+>>>>>>> REPLACE
+
+### EDIT 19: blossom shell colour distribution
+<<<<<<< FIND
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.25) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.55) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.85) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.1) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.5) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+=======
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.40) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.65) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.90) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.45) {
+              color = BLOSSOM_COLORS[2];
+            } else if (pick < 0.75) {
+              color = BLOSSOM_COLORS[0];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+>>>>>>> REPLACE
+
+### EDIT 20: add lantern builder after trees
+<<<<<<< FIND
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+=======
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+
+function buildLanterns(rng) {
+  for (const x of [-3, 3]) {
+    const z = 11;
+    if (hasVoxel(x, 1, z)) {
+      continue;
+    }
+    setVoxel(x, 1, z, PLINTH_COLORS[0]);
+    setVoxel(x, 2, z, PLINTH_COLORS[2]);
+    setVoxel(x, 3, z, 0xffe7a3);
+    setVoxel(x, 4, z, 0x4a4a50);
+  }
+}
+>>>>>>> REPLACE
+
+### EDIT 21: call lantern builder
+<<<<<<< FIND
+  buildBridge();
+  buildTrees(rng);
+  scatterSteppingStones(rng);
+=======
+  buildBridge();
+  buildTrees(rng);
+  buildLanterns(rng);
+  scatterSteppingStones(rng);
+>>>>>>> REPLACE

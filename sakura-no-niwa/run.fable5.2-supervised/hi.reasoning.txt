@@ -1,0 +1,61 @@
+The user wants a self-contained HTML file showing "hi" large and centered. I should pick colors, font, and one small extra touch. Output only the fenced block.
+
+Let me make something tasteful: dark background, soft gradient text, subtle animation (one extra touch) — but keep it simple and robust. Self-contained: no external fonts (or use system font stack). Let's do a warm cream background with deep ink text, and a gentle fade/scale-in animation plus maybe a soft glow. One extra touch — a subtle animated underline? Keep it to one: entrance animation.
+
+Let me write clean CSS.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hi</title>
+<style>
+  :root {
+    --bg: #0f1014;
+    --ink: #f4efe6;
+    --accent: #ff8a5c;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at 50% 40%, #1a1c22 0%, var(--bg) 70%);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    overflow: hidden;
+  }
+  .hi {
+    font-size: clamp(6rem, 40vmin, 28rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin: 0;
+    color: var(--ink);
+    text-shadow: 0 0 60px rgba(255, 138, 92, 0.25);
+    animation: rise 900ms cubic-bezier(.2,.8,.2,1) both;
+  }
+  .hi::after { ... }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(0.12em) scale(0.96); filter: blur(8px); }
+    to { opacity: 1; transform: none; filter: blur(0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .hi { animation: none; } }
+</style>
+</head>
+<body>
+  <h1 class="hi">hi</h1>
+</body>
+</html>
+```
+
+Extra touch: the entrance animation. Maybe also a faint accent dot? Keep one. Actually the text-shadow glow counts as part of the look. Fine.
+
+Make sure `hi` is lowercase displayed — yes, text is "hi". Use text-transform none. Good.
+
+I'll add a subtle warm underline accent? No — one extra touch only. Animation is enough.
+
+Let me finalize.

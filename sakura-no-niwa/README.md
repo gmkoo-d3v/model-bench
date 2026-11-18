@@ -587,9 +587,10 @@ Codex 앱 Sol은 처음 열었을 때 "GROWING YOUR GARDEN" 로딩 화면에서 
 | `fable-5.2-max.html` | Fable 5.2가 별도 세션에서 직접 쓴 결과물 (조건이 다름, †) |
 | `fable5.2with<워커>.html` | Fable 5.2가 감독하고 워커가 쓴 결과물의 최종본. DeepSeek 파일은 이름 끝에 `eli3`가 붙습니다 |
 | `gpt-6.2-astrawithdeepseekv4.1eli3.html` | gpt-6.2-astra가 감독하고 같은 로컬 DeepSeek이 쓴 결과물의 최종본 |
-| `run.*` | 실행 로그 (`.gitignore`로 제외, 레포에 없음) |
-| `run.fable5.2-supervised/` | 감독 실행 기록: 지시문, 요청·응답 원본, 검수 지시, 1차본. 역시 레포에 없음 |
-| `run.fable-5.2-max/` | Fable 5.2 직접 작성 세션의 메모와 시드 스윕 스크립트. 역시 레포에 없음 |
+| `run.*.log`, `run.*.json`, `run.*.ndjson` | 2026-11-02 실행 로그 (`.gitignore`로 제외, 레포에 없음) |
+| [`run.fable5.2-supervised/`](run.fable5.2-supervised/INDEX.md) | 감독 실행 기록: 지시문, 요청·응답 원본, 검수 지시, 1차본, 사양 조항 측정 도구 |
+| `run.fable-5.2-max/` | Fable 5.2 직접 작성 세션의 메모와 시드 스윕 스크립트 |
+| [`bonus-fable-5.2-max.html`](bonus-fable-5.2-max.html) | 번외. 사양 제약을 풀고 "보기 좋게"만 요구해서 Fable 5.2가 만든 것입니다. 평가 대상이 아닙니다 |
 
 ## 직접 열어보기
 

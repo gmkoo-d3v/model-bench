@@ -1,0 +1,1844 @@
+We need produce search/replace edits. Must reference exact current file text. Need carefully construct FIND blocks byte-for-byte, unique. Need not print whole file. Need include all C1-C9 changes. Let's enumerate.
+
+Need recall current file exact content. We have it above. We must make edits, non-overlapping, FIND current file original. Let's plan.
+
+C1:
+- waterMaterial opacity 0.72 -> 0.6. FIND exact lines:
+```
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.72,
+  depthWrite: false
+});
+```
+Replace opacity 0.6.
+- buildKoiData scales `[0.55, 0.6, 0.5, 0.4, 0.3]` -> `[0.7, 0.8, 0.65, 0.5, 0.35]`.
+- writeKoiMatrices y `-0.42` -> `-0.08`. Line `dummy.position.set(x, -0.42, z);` unique? Search file has only in writeKoiMatrices? There is also? I think only once. Good.
+
+C2:
+- layout literal initial pond object add interior and centroid. Need add both fields in `let layout` literal, `resetLayout`, `computePond`. Also applyPond fill interior set and centroid.
+
+Current `let layout = { ... pond: { px: 0, pz: 0, rx: 0, rz: 0, cells: new Set(), cellList: [], waterCells: [] }, ... }`
+and resetLayout same. computePond assigns:
+```
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: []
+  };
+```
+Need add interior: new Set(), centroid: { x: 0, z: 0 } in literal/reset; computePond after applyPond? Actually computePond can set empty interior/centroid initially then applyPond fills. We can add in computePond object with `interior: new Set(), centroid: { x: 0, z: 0 }`.
+
+Need applyPond: currently loops cells. We need also fill `layout.pond.interior`, centroid mean. We can compute in applyPond. Need careful with current code. Let's inspect applyPond current:
+
+```
+function applyPond(rng) {
+  const pond = layout.pond;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+}
+```
+
+Need add `pond.interior = new Set();` maybe before loop, sumX, sumZ. In interior branch add key. After loop compute centroid. Could modify beginning and inside interior branch and after loop. We need non-overlapping edits. We can make one edit covering whole function? Simpler, FIND whole applyPond function and replace with updated. That's okay, unique. Include enough lines. We'll do one edit for applyPond entire function perhaps. Need exact original text from file. We'll copy.
+
+C3:
+- add `let fill = null;` next to `let moon = null;`. Current declarations:
+```
+let sun = null;
+let hemi = null;
+let moon = null;
+
+let staticMesh = null;
+```
+Edit to insert `let fill = null;` after moon. Could FIND `let moon = null;\n\nlet staticMesh = null;` replace with fill line.
+- add `const whiteColor = new THREE.Color(0xffffff);` next to groundColor. Current:
+```
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+```
+Change groundColor to 0x8c8172 and add whiteColor. Could edit both lines:
+FIND:
+```
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+```
+REPLACE:
+```
+const groundColor = new THREE.Color(0x8c8172);
+const whiteColor = new THREE.Color(0xffffff);
+const tmpColor = new THREE.Color();
+```
+- init HemisphereLight: currently `hemi = new THREE.HemisphereLight(0xa8d8f8, 0x6b5a45, 1.5);` change to 0x8c8172,1.1.
+- after moon create fill. Current init:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+```
+Insert fill lines before glowTexture. Need `fill.target` added.
+- applyTime changes. Current:
+```
+  const dayFactor = smoothstep(-0.1, 0.25, sinAngle);
+  sun.intensity = 3.0 * dayFactor;
+
+  const warmMix = smoothstep(-0.05, 0.65, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  moon.intensity = 0.8 * (1 - dayFactor);
+
+  hemi.intensity = lerp(0.45, 1.5, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky);
+  hemi.groundColor.copy(groundColor);
+```
+Replace with specified:
+```
+  const dayFactor = smoothstep(-0.22, 0.22, sinAngle);
+  sun.intensity = 2.4 * dayFactor;
+
+  const warmMix = smoothstep(0.05, 0.6, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  moon.intensity = 0.8 * (1 - dayFactor);
+
+  hemi.intensity = lerp(0.5, 1.1, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky).lerp(whiteColor, 0.35);
+  hemi.groundColor.copy(groundColor);
+
+  fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);
+  fill.target.position.set(0, 0, 0);
+  fill.color.copy(sky).lerp(whiteColor, 0.6);
+  fill.intensity = lerp(0.15, 0.9, dayFactor);
+```
+Need ensure `fill` non-null when applyTime called. applyTime called after init creates fill, yes.
+
+C4 updatePresets: Pagoda position and target; Pond position. Current:
+```
+  presets.push({
+    pos: new THREE.Vector3(29, 21, 42),
+    target: new THREE.Vector3(0, 16, 0)
+  });
+
+  presets.push({
+    pos: new THREE.Vector3(layout.pond.px + 15, 16, layout.pond.pz + 14),
+    target: new THREE.Vector3(layout.pond.px, 0.5, layout.pond.pz)
+  });
+```
+Replace with (31,22,45), target (0,16.5,0), pond pos +17,18,+16.
+
+C5 updatePetals: before dummy.updateMatrix add scale conditional. Current:
+```
+    dummy.position.set(petalPos[i3], petalPos[i3 + 1], petalPos[i3 + 2]);
+    dummy.rotation.set(petalRot[i3], petalRot[i3 + 1], petalRot[i3 + 2]);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    petalMesh.setMatrixAt(i, dummy.matrix);
+```
+Need compute dx,dy,dz or squared distance. Add:
+```
+    const dx = petalPos[i3] - camera.position.x;
+    const dy = petalPos[i3 + 1] - camera.position.y;
+    const dz = petalPos[i3 + 2] - camera.position.z;
+    if (dx * dx + dy * dy + dz * dz < 49) {
+      dummy.scale.set(0, 0, 0);
+    } else {
+      dummy.scale.set(1, 1, 1);
+    }
+    dummy.updateMatrix();
+```
+Need avoid `dx` collisions? This is inside updatePetals loop; no existing dx/dy/dz in scope. Fine.
+
+C6 firefliesMaterial size 0.9 -> 1.5. Current:
+```
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.9,
+```
+Replace size 1.5.
+
+C7 markup and CSS. Need exact CSS current:
+```
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+```
+Change min-width 88px and add `.speed-label` and `.play-row .val`. Need insert CSS. Could FIND block and replace:
+```
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+```
+with
+```
+  .speed-label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #cfd8e6;
+  }
+
+  .play-row .val {
+    min-width: 22px;
+  }
+
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 88px;
+    white-space: nowrap;
+  }
+```
+Markup current:
+```
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+```
+Insert `<span class="speed-label">speed</span>` between button and input.
+
+C8 buildTrees color branches. Need carefully replace middle shell and outer shell. Current block:
+```
+          let color;
+          if (minDistance < 0.45) {
+            const pick = rng();
+            if (pick < 0.55) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.8) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.93) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.25) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.55) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.85) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.1) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.5) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+```
+Need middle: `[0]` 40%, `[1]` 25%, `[2]` 25%, `[3]` 10%. So thresholds: pick <0.40 -> [0]; <0.65 -> [1]; <0.90 -> [2]; else [3].
+Outer: `[2]` 45%, `[0]` 30%, `[3]` 25%. thresholds: <0.45 -> [2]; <0.75 -> [0]; else [3].
+Keep one rng per voxel. Core unchanged.
+
+C9 add buildLanterns function and call after buildTrees. Need insert function. Where to place? Could insert after buildTrees function end before buildKoiData. Need find unique line after buildTrees. Current:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+
+function buildKoiData(rng) {
+```
+Insert function between. Need `buildLanterns(rng)` defined. It uses `hasVoxel`, setVoxel, PLINTH_COLORS, etc. rng unused okay. We can define:
+```
+function buildLanterns(rng) {
+  for (const x of [-3, 3]) {
+    const z = 11;
+    if (hasVoxel(x, 1, z)) {
+      continue;
+    }
+    setVoxel(x, 1, z, PLINTH_COLORS[0]);
+    setVoxel(x, 2, z, PLINTH_COLORS[2]);
+    setVoxel(x, 3, z, 0xffe7a3);
+    setVoxel(x, 4, z, 0x4a4a50);
+  }
+}
+```
+Could omit rng param? Brief says new function buildLanterns(rng), parameter may stay unused. Good.
+
+Call in rebuildWorld right after buildTrees(rng). Current:
+```
+  buildBridge();
+  buildTrees(rng);
+  scatterSteppingStones(rng);
+```
+Replace with add `buildLanterns(rng);` after buildTrees. Ensure function declaration hoisted? Function declarations hoisted, fine. But declaration is after buildTrees, still okay.
+
+Need also C2 layout additions. Let's inspect exact layout literal and resetLayout text. We have above.
+
+`let layout = {` block:
+```
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+  pathCells: new Set(),
+...
+```
+and resetLayout:
+```
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+    pathCells: new Set(),
+...
+```
+These two pond blocks identical? Let's compare indentation: top-level has 4 spaces before px? In `let layout`:
+```
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+```
+In resetLayout:
+```
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+```
+Different indentation, so FIND unique if include context. Need add interior and centroid. Could edit each separately.
+
+But note computePond object also has same-ish lines but different. We'll edit all three.
+
+Need ensure C2 interior filled correctly. In applyPond, we need compute centroid mean of all pond cells. We can do in one replacement of whole function. Let's write updated applyPond:
+
+```
+function applyPond(rng) {
+  const pond = layout.pond;
+  const interiorKeys = new Set();
+  let sumX = 0;
+  let sumZ = 0;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    sumX += x;
+    sumZ += z;
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      interiorKeys.add(x + ',' + z);
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+
+  pond.interior = interiorKeys;
+
+  if (pond.cellList.length > 0) {
+    pond.centroid = {
+      x: sumX / pond.cellList.length,
+      z: sumZ / pond.cellList.length
+    };
+  } else {
+    pond.centroid = { x: pond.px, z: pond.pz };
+  }
+}
+```
+This changes applyPond entirely. Need exact FIND original function. We'll copy exactly.
+
+C2 buildKoiData update. Need inspect current buildKoiData:
+```
+function buildKoiData(rng) {
+  const fishCount = 2 + (rng() < 0.5 ? 0 : 1);
+  const fish = [];
+  const segments = [];
+  const scales = [0.55, 0.6, 0.5, 0.4, 0.3];
+
+  for (let fishIndex = 0; fishIndex < fishCount; fishIndex++) {
+    const cx = layout.pond.px + (rng() * 2 - 1);
+    const cz = layout.pond.pz + (rng() * 2 - 1);
+
+    const maxA = Math.max(1.8, layout.pond.rx - 2.2);
+    const a = 1.8 + rng() * Math.max(0, maxA - 1.8);
+
+    const maxB = Math.max(2.5, layout.pond.rz - 3);
+    const b = 2.5 + rng() * Math.max(0, maxB - 2.5);
+
+    const omega = 0.25 + rng() * 0.15;
+    const direction = rng() < 0.5 ? 1 : -1;
+    const phase0 = rng() * TAU;
+    const whiteIndex = 1 + Math.floor(rng() * 3);
+
+    fish.push({
+      cx,
+      cz,
+      a,
+      b,
+      omega,
+      direction,
+      phase0
+    });
+
+    for (let segmentIndex = 0; segmentIndex < 5; segmentIndex++) {
+      const color = segmentIndex === whiteIndex
+        ? KOI_WHITE
+        : KOI_COLORS[Math.floor(rng() * KOI_COLORS.length)];
+
+      segments.push({
+        fish: fishIndex,
+        scale: scales[segmentIndex],
+        color,
+        delay: segmentIndex * 0.22
+      });
+    }
+  }
+
+  layout.koi = { fish, segments };
+}
+```
+Need change scales C1, loop center C2, validation. Need keep rng calls fixed per koi: currently rng calls: fishCount (once), then per fish: cx, cz, a, b, omega, direction, phase0, whiteIndex, then for each segment color (5). That's 8 + 5 = 13 per fish. We must do validation without rng. Good.
+
+Need use centroid plus seeded offset -0.8 to 0.8 each axis. So:
+```
+    const cx = layout.pond.centroid.x + (rng() * 1.6 - 0.8);
+    const cz = layout.pond.centroid.z + (rng() * 1.6 - 0.8);
+```
+This preserves 2 calls. Then choose a,b with one rng each. Then validate loop. We need sample 64 phases; cell rounded must be in interior. If fails multiply a,b by 0.88, at most 14 times, never letting a below 1.0 or b below 1.2.
+
+Need implement validation. Since no rng calls. Something like:
+```
+    let loopA = a;
+    let loopB = b;
+    let valid = false;
+
+    for (let attempt = 0; attempt < 14; attempt++) {
+      valid = true;
+      for (let sample = 0; sample < 64; sample++) {
+        const phase = sample / 64 * TAU;
+        const sx = Math.round(cx + loopA * Math.cos(phase));
+        const sz = Math.round(cz + loopB * Math.sin(phase));
+        if (!layout.pond.interior.has(sx + ',' + sz)) {
+          valid = false;
+          break;
+        }
+      }
+      if (valid) {
+        break;
+      }
+      loopA = Math.max(1.0, loopA * 0.88);
+      loopB = Math.max(1.2, loopB * 0.88);
+    }
+
+    if (!valid) {
+      loopA = Math.max(1.0, loopA);
+      loopB = Math.max(1.2, loopB);
+    }
+```
+But if after 14 attempts still invalid, what? We keep whatever. We might want to fallback to a=1.0,b=1.2? But validation may still fail. Requirement says validate, multiply at most 14 times, never below. It doesn't require success. We can set after loop if !valid maybe reduce to min? But if still invalid, koi may leave water. Could do `if (!valid) { loopA = Math.max(1.0, Math.min(loopA, ...)); }` but no guarantee. Maybe choose centroid? The pond interior likely contains centroid-ish, with a=1.0,b=1.2 might be within. We can after loop set to min if invalid? But "multiply a and b by 0.88 and test again, at most 14 times, never letting a go below 1.0 or b below 1.2." After 14 times, if still invalid, maybe leave min? Could force loopA=1.0, loopB=1.2. But then still could fail. But likely interior set large enough. We'll implement robust fallback: if not valid after 14 attempts, set loopA=1.0, loopB=1.2 and accept? Could still not validate. But no better. We could search smaller? But requirement specifically at most 14. We'll follow. We'll use `let a` and `let b` variables? Current `const a = ...` and `const b = ...`. Change to `let a` and `let b` and adjust. But fish.push uses a,b. We can mutate. That's fine. Need ensure C2 validation uses interior. Since `applyPond` is called before buildKoiData in rebuildWorld, layout.pond.interior is populated. Good.
+
+Need modify buildKoiData in one edit. Include scales, cx, cz, a, b, validation, push. Could replace entire function to be safe. But C1 scales and C2 are in same function. We can one edit for buildKoiData entire function. That's fine. Need exact FIND current function. We'll copy. Replace with updated function. This edit also includes scale change, so no separate C1 scales edit. But C1 also requires writeKoiMatrices y and water opacity. Fine.
+
+Need ensure buildKoiData updated function uses `layout.pond.interior` and `centroid`. Good.
+
+Potential issue: `layout.pond.interior` added in applyPond; in `computePond` initial object has `interior: new Set(), centroid: {x:0,z:0}`. Good.
+
+Need C3 `fill` declaration and init. Need applyTime. Also `whiteColor` declaration. Good.
+
+Need C9 function insertion. Need call in rebuildWorld. Good.
+
+Need C7 CSS and markup.
+
+Need maybe C2 add interior/centroid to layout literal and resetLayout and computePond. Need edits.
+
+Let's construct edits in order maybe. Need ensure FIND texts unique and exact. We should use multiple lines enough. Since file large, need exact copy.
+
+Let's verify current file snippets from our previous answer. I'll reference above. We need be meticulous with indentation and blank lines.
+
+Edit 1: water opacity. FIND:
+```
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.72,
+  depthWrite: false
+});
+```
+This occurs once. Replace opacity 0.6. Good.
+
+Edit 2: fireflies size. FIND:
+```
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.9,
+  sizeAttenuation: true,
+```
+Replace size 1.5. Unique.
+
+Edit 3: groundColor + whiteColor. FIND:
+```
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+```
+Replace with 0x8c8172, whiteColor, tmpColor. Unique? groundColor only once. Good.
+
+Edit 4: fill declaration. FIND:
+```
+let sun = null;
+let hemi = null;
+let moon = null;
+
+let staticMesh = null;
+```
+Replace:
+```
+let sun = null;
+let hemi = null;
+let moon = null;
+let fill = null;
+
+let staticMesh = null;
+```
+Unique.
+
+Edit 5: layout literal pond. FIND:
+```
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+```
+Replace adding interior and centroid:
+```
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: [],
+    interior: new Set(),
+    centroid: { x: 0, z: 0 }
+  },
+```
+Need comma after waterCells: [] yes. Good. Unique because starts `let layout = {`.
+
+Edit 6: resetLayout pond. FIND:
+```
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+```
+Replace adding interior/centroid. Need include function start to be unique. Good.
+
+Edit 7: computePond layout assignment. FIND:
+```
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: []
+  };
+```
+Replace:
+```
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: [],
+    interior: new Set(),
+    centroid: { x: 0, z: 0 }
+  };
+```
+Unique. Good.
+
+Edit 8: applyPond entire function. FIND original:
+```
+function applyPond(rng) {
+  const pond = layout.pond;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+}
+```
+Replace as above. Need ensure exact. Good.
+
+Edit 9: buildKoiData entire function. FIND original with scales [0.55,...] and current cx/cz. Replace updated. Need careful. Let's write updated buildKoiData fully:
+
+```
+function buildKoiData(rng) {
+  const fishCount = 2 + (rng() < 0.5 ? 0 : 1);
+  const fish = [];
+  const segments = [];
+  const scales = [0.7, 0.8, 0.65, 0.5, 0.35];
+
+  for (let fishIndex = 0; fishIndex < fishCount; fishIndex++) {
+    const cx = layout.pond.centroid.x + (rng() * 1.6 - 0.8);
+    const cz = layout.pond.centroid.z + (rng() * 1.6 - 0.8);
+
+    const maxA = Math.max(1.8, layout.pond.rx - 2.2);
+    const a = 1.8 + rng() * Math.max(0, maxA - 1.8);
+
+    const maxB = Math.max(2.5, layout.pond.rz - 3);
+    const b = 2.5 + rng() * Math.max(0, maxB - 2.5);
+
+    let loopA = a;
+    let loopB = b;
+    let validLoop = false;
+
+    for (let attempt = 0; attempt < 14; attempt++) {
+      validLoop = true;
+      for (let sample = 0; sample < 64; sample++) {
+        const phase = sample / 64 * TAU;
+        const sampleX = Math.round(cx + loopA * Math.cos(phase));
+        const sampleZ = Math.round(cz + loopB * Math.sin(phase));
+        if (!layout.pond.interior.has(sampleX + ',' + sampleZ)) {
+          validLoop = false;
+          break;
+        }
+      }
+      if (validLoop) {
+        break;
+      }
+      loopA = Math.max(1.0, loopA * 0.88);
+      loopB = Math.max(1.2, loopB * 0.88);
+    }
+
+    if (!validLoop) {
+      loopA = Math.max(1.0, loopA);
+      loopB = Math.max(1.2, loopB);
+    }
+
+    const omega = 0.25 + rng() * 0.15;
+    const direction = rng() < 0.5 ? 1 : -1;
+    const phase0 = rng() * TAU;
+    const whiteIndex = 1 + Math.floor(rng() * 3);
+
+    fish.push({
+      cx,
+      cz,
+      a: loopA,
+      b: loopB,
+      omega,
+      direction,
+      phase0
+    });
+
+    for (let segmentIndex = 0; segmentIndex < 5; segmentIndex++) {
+      const color = segmentIndex === whiteIndex
+        ? KOI_WHITE
+        : KOI_COLORS[Math.floor(rng() * KOI_COLORS.length)];
+
+      segments.push({
+        fish: fishIndex,
+        scale: scales[segmentIndex],
+        color,
+        delay: segmentIndex * 0.22
+      });
+    }
+  }
+
+  layout.koi = { fish, segments };
+}
+```
+Wait we must keep number of rng calls per koi fixed. Original had cx, cz, a, b, omega, direction, phase0, whiteIndex, 5 colors = 13. Our updated has same calls: cx, cz, a, b, omega, direction, phase0, whiteIndex, 5 colors. Validation no rng. Good. But we introduced `const a` and `const b`, then loopA/loopB. Fine. Could just mutate a,b but const. Good.
+
+Potential issue: The brief says "After choosing a and b, validate the loop: sample 64 phases around it; for every sample the cell (Math.round(x), Math.round(z)) must be in layout.pond.interior. If any sample fails, multiply a and b by 0.88 and test again, at most 14 times, never letting a go below 1.0 or b below 1.2." We do that. Good.
+
+Edit 10: writeKoiMatrices y. FIND:
+```
+    dummy.position.set(x, -0.42, z);
+    dummy.rotation.set(0, yaw, 0);
+```
+Replace -0.08. Unique? `-0.42` only there. Good.
+
+Edit 11: init HemisphereLight and fill creation. Could do two edits or one. Need current init snippet. Let's do separate:
+- FIND `  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x6b5a45, 1.5);` replace with `  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x8c8172, 1.1);`. Unique.
+- FIND moon block plus blank before glowTexture:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+```
+Replace with moon block plus fill block plus glowTexture. Need exact. Good.
+
+Edit 12: applyTime block. FIND as above. Replace. Need include `hemi.color.copy(sky).lerp(whiteColor, 0.35);` etc. Ensure no overlap with groundColor edit. Good.
+
+Edit 13: updatePresets pagoda/pond. FIND exact block. Replace.
+
+Edit 14: updatePetals scale conditional. FIND exact 5 lines. Replace with new lines. Need ensure FIND unique. It occurs only in updatePetals. Good.
+
+Edit 15: CSS play-btn. FIND block. Replace with speed-label + play-row val + play-btn. Good.
+
+Edit 16: markup play row. FIND exact. Replace with speed-label inserted.
+
+Edit 17: buildTrees color branches. FIND middle and outer branches block maybe including core? We can FIND from `          } else if (minDistance < 0.8) {` to end. Need exact. Let's use a larger block starting at `          } else if (minDistance < 0.8) {` through the final `          }` before `        }`? Need unique. We'll replace only middle and outer. Original:
+```
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.25) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.55) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.85) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.1) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.5) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+```
+Replace:
+```
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.40) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.65) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.90) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.45) {
+              color = BLOSSOM_COLORS[2];
+            } else if (pick < 0.75) {
+              color = BLOSSOM_COLORS[0];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+```
+Need check middle percentages: [0] 40, [1] 25 (0.40-0.65), [2] 25 (0.65-0.90), [3] 10. Yes. Outer: [2] 45, [0] 30 (0.45-0.75), [3] 25. Good. Unique? The block maybe unique. Good.
+
+Edit 18: insert buildLanterns function after buildTrees. FIND:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+
+function buildKoiData(rng) {
+```
+Replace with same plus lanterns function before buildKoiData. Need exact. Good.
+
+Edit 19: call buildLanterns in rebuildWorld. FIND:
+```
+  buildBridge();
+  buildTrees(rng);
+  scatterSteppingStones(rng);
+```
+Replace:
+```
+  buildBridge();
+  buildTrees(rng);
+  buildLanterns(rng);
+  scatterSteppingStones(rng);
+```
+Unique. Good.
+
+Need consider order of edits: The buildKoiData edit (Edit 9) uses `layout.pond.interior`, and we add fields in earlier edits. Fine. C1 scale included in buildKoiData replacement. Good.
+
+Need ensure C2 "Add both fields to every place that builds a pond object (the let layout literal, resetLayout, computePond), with interior: new Set() and centroid: { x: 0, z: 0 } as initial values." We did.
+
+Need C2 "applyPond: also fill layout.pond.interior, a Set of the x + ',' + z keys of the interior cells, and layout.pond.centroid = { x, z }, the mean x and mean z of all pond cells." We did.
+
+Need C2 "the loop centre becomes the centroid plus a seeded offset of -0.8 to 0.8 on each axis." We did `centroid.x + (rng()*1.6 - 0.8)`. Good.
+
+Need C1 "writeKoiMatrices: the y of every segment becomes -0.08". We did.
+
+Need C3 "add let fill = null; next to let moon = null;" done.
+"add const whiteColor = new THREE.Color(0xffffff); next to groundColor" done.
+"groundColor becomes 0x8c8172" done.
+"init: HemisphereLight is created with (0xa8d8f8, 0x8c8172, 1.1)" done.
+"after the moon, create the fill light: fill = new THREE.DirectionalLight(0xffffff, 0); fill.castShadow = false; add fill and fill.target to scene." done.
+"applyTime ..." done. Need ensure `fill` exists when `applyTime` called during init? init creates fill before setupUI/rebuildWorld/applyTime. Good.
+"fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);" We wrote exactly. Good.
+
+Need C4 positions. Good.
+
+Need C5 "before dummy.updateMatrix(): if the petal is closer than 7 units to camera.position (compare squared distances, 49), use dummy.scale.set(0, 0, 0); otherwise dummy.scale.set(1, 1, 1) as now." We inserted dx/dy/dz. Good.
+
+Need C6 size 1.5. Good.
+
+Need C7 CSS and markup. Good.
+
+Need C8 color branches. Good.
+
+Need C9 lanterns. Good.
+
+Need ensure all FIND texts exact and unique. Let's carefully verify each FIND against current file from previous answer. I'll mentally copy.
+
+Edit 1 waterMaterial: In file:
+```
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.72,
+  depthWrite: false
+});
+```
+Yes.
+
+Edit 2 firefliesMaterial:
+```
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.9,
+  sizeAttenuation: true,
+```
+Yes.
+
+Edit 3:
+```
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+```
+Yes.
+
+Edit 4:
+```
+let sun = null;
+let hemi = null;
+let moon = null;
+
+let staticMesh = null;
+```
+Yes.
+
+Edit 5 layout literal. Need exact from file:
+```
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+```
+Yes. Note after this is `  pathCells: new Set(),` etc. We include only through pond closing. Good.
+
+Edit 6 resetLayout:
+```
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+```
+Yes.
+
+Edit 7 computePond:
+```
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: []
+  };
+```
+Yes.
+
+Edit 8 applyPond. Need exact. Let's copy from above. Ensure blank lines exactly. In file:
+```
+function applyPond(rng) {
+  const pond = layout.pond;
+
+  for (const cell of pond.cellList) {
+    const x = cell[0];
+    const z = cell[1];
+
+    removeVoxel(x, 0, z);
+
+    const waterColor = WATER_COLORS[Math.floor(rng() * WATER_COLORS.length)];
+    pond.waterCells.push([x, z, waterColor]);
+
+    const interior =
+      pond.cells.has((x + 1) + ',' + z) &&
+      pond.cells.has((x - 1) + ',' + z) &&
+      pond.cells.has(x + ',' + (z + 1)) &&
+      pond.cells.has(x + ',' + (z - 1));
+
+    if (interior) {
+      removeVoxel(x, -1, z);
+      if (hasVoxel(x, -2, z)) {
+        setVoxel(x, -2, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    } else {
+      if (hasVoxel(x, -1, z)) {
+        setVoxel(x, -1, z, POND_BED_COLORS[Math.floor(rng() * POND_BED_COLORS.length)]);
+      }
+    }
+  }
+}
+```
+Yes.
+
+Edit 9 buildKoiData. Need exact. From file:
+```
+function buildKoiData(rng) {
+  const fishCount = 2 + (rng() < 0.5 ? 0 : 1);
+  const fish = [];
+  const segments = [];
+  const scales = [0.55, 0.6, 0.5, 0.4, 0.3];
+
+  for (let fishIndex = 0; fishIndex < fishCount; fishIndex++) {
+    const cx = layout.pond.px + (rng() * 2 - 1);
+    const cz = layout.pond.pz + (rng() * 2 - 1);
+
+    const maxA = Math.max(1.8, layout.pond.rx - 2.2);
+    const a = 1.8 + rng() * Math.max(0, maxA - 1.8);
+
+    const maxB = Math.max(2.5, layout.pond.rz - 3);
+    const b = 2.5 + rng() * Math.max(0, maxB - 2.5);
+
+    const omega = 0.25 + rng() * 0.15;
+    const direction = rng() < 0.5 ? 1 : -1;
+    const phase0 = rng() * TAU;
+    const whiteIndex = 1 + Math.floor(rng() * 3);
+
+    fish.push({
+      cx,
+      cz,
+      a,
+      b,
+      omega,
+      direction,
+      phase0
+    });
+
+    for (let segmentIndex = 0; segmentIndex < 5; segmentIndex++) {
+      const color = segmentIndex === whiteIndex
+        ? KOI_WHITE
+        : KOI_COLORS[Math.floor(rng() * KOI_COLORS.length)];
+
+      segments.push({
+        fish: fishIndex,
+        scale: scales[segmentIndex],
+        color,
+        delay: segmentIndex * 0.22
+      });
+    }
+  }
+
+  layout.koi = { fish, segments };
+}
+```
+Yes.
+
+Edit 10 writeKoiMatrices:
+```
+    dummy.position.set(x, -0.42, z);
+    dummy.rotation.set(0, yaw, 0);
+```
+Yes.
+
+Edit 11 hemi line:
+```
+  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x6b5a45, 1.5);
+```
+Yes.
+
+Edit 12 moon block:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+```
+Yes.
+
+Edit 13 applyTime block. From file:
+```
+  const dayFactor = smoothstep(-0.1, 0.25, sinAngle);
+  sun.intensity = 3.0 * dayFactor;
+
+  const warmMix = smoothstep(-0.05, 0.65, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  moon.intensity = 0.8 * (1 - dayFactor);
+
+  hemi.intensity = lerp(0.45, 1.5, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky);
+  hemi.groundColor.copy(groundColor);
+```
+Yes. Replace as above. Need include `fill` lines after hemi.groundColor. Good.
+
+Edit 14 updatePresets block. From file:
+```
+  presets.push({
+    pos: new THREE.Vector3(29, 21, 42),
+    target: new THREE.Vector3(0, 16, 0)
+  });
+
+  presets.push({
+    pos: new THREE.Vector3(layout.pond.px + 15, 16, layout.pond.pz + 14),
+    target: new THREE.Vector3(layout.pond.px, 0.5, layout.pond.pz)
+  });
+```
+Yes. Replace.
+
+Edit 15 updatePetals lines:
+```
+    dummy.position.set(petalPos[i3], petalPos[i3 + 1], petalPos[i3 + 2]);
+    dummy.rotation.set(petalRot[i3], petalRot[i3 + 1], petalRot[i3 + 2]);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    petalMesh.setMatrixAt(i, dummy.matrix);
+```
+Yes. Replace.
+
+Edit 16 CSS play-btn. From file:
+```
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+```
+Yes. Replace with CSS. Need ensure `.speed-label` insertion location okay. We'll put before `.play-btn`. Good.
+
+Edit 17 markup:
+```
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+```
+Yes. Replace with speed-label span. Need exact `▶` char. We'll copy.
+
+Edit 18 buildTrees branches. Need exact block. Let's verify from file. The branch begins after core branch:
+```
+          } else if (minDistance < 0.8) {
+            const pick = rng();
+            if (pick < 0.25) {
+              color = BLOSSOM_COLORS[1];
+            } else if (pick < 0.55) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.85) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          } else {
+            const pick = rng();
+            if (pick < 0.1) {
+              color = BLOSSOM_COLORS[0];
+            } else if (pick < 0.5) {
+              color = BLOSSOM_COLORS[2];
+            } else {
+              color = BLOSSOM_COLORS[3];
+            }
+          }
+```
+Yes.
+
+Edit 19 buildLanterns insertion. FIND:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+
+function buildKoiData(rng) {
+```
+Yes. Replace with same plus lanterns function. Need ensure no overlap with Edit 9 buildKoiData? Wait Edit 9 FIND starts `function buildKoiData(rng) {`. Edit 19 FIND ends with `function buildKoiData(rng) {`. That overlaps! Rule: FIND texts must not overlap each other. If Edit 9 includes `function buildKoiData(rng) {` and Edit 19 includes same line, they overlap. Need avoid overlap. We can adjust Edit 19 to insert before `function buildKoiData(rng) {` without including that line? But rule 4 says to insert new code, FIND an existing line or two next to insertion point and repeat them in REPLACE together with new lines. We can FIND the end of buildTrees:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+```
+and replace with same plus lanterns function. This does not include buildKoiData line, so no overlap with Edit 9. But is this FIND unique? The `layout.trees.push` block occurs only in buildTrees. Yes. Good. We'll use that. Then Edit 9 FIND starts at `function buildKoiData(rng) {`, no overlap. Good.
+
+Similarly Edit 19 call in rebuildWorld separate. Fine.
+
+Need check Edit 5/6/7 don't overlap? They are different locations. Edit 5 includes `let layout = {`, Edit 6 includes `function resetLayout() {`, Edit 7 includes `layout.pond = {`. Distinct. Good.
+
+Need check Edit 8 applyPond and Edit 9 buildKoiData no overlap. Fine.
+
+Need check Edit 10 writeKoiMatrices and Edit 9 buildKoiData? No overlap. Good.
+
+Need check Edit 11 hemi line and Edit 12 moon block separate. Good.
+
+Need check Edit 13 applyTime block and Edit 11/12? No overlap. Edit 13 includes moon lines inside applyTime? Wait Edit 12 moon block is in init:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+```
+Edit 13 applyTime block includes:
+```
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  moon.intensity = 0.8 * (1 - dayFactor);
+```
+This is different lines because Edit 12 has `moon = new THREE.DirectionalLight...` and `scene.add`. Edit 13 FIND starts `const dayFactor...` through `hemi.groundColor...`. It includes moon.position etc. Does Edit 12 FIND include `moon.position...`? Yes, Edit 12 includes `moon.position.copy...`, `moon.target.position...`, `scene.add(moon)`, `scene.add(moon.target)`. Edit 13 includes `moon.position.copy...`, `moon.target.position...`, `moon.intensity...`. These lines overlap! Rule says FIND texts must not overlap each other. Need avoid overlap. We need separate edits that don't share lines. We can handle C3 changes in applyTime without including moon lines? We need change dayFactor, sun intensity, warmMix, hemi intensity, hemi.color, add fill lines. The moon lines stay as they are. We can FIND from `const dayFactor...` through `sun.color...` and replace; then separate FIND `hemi.intensity...` through `hemi.groundColor...` and replace with new plus fill lines. But the block includes moon lines between; if we do two edits, they don't include moon lines, avoiding overlap with Edit 12. Let's design:
+
+Edit 13a: FIND:
+```
+  const dayFactor = smoothstep(-0.1, 0.25, sinAngle);
+  sun.intensity = 3.0 * dayFactor;
+
+  const warmMix = smoothstep(-0.05, 0.65, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+```
+Replace:
+```
+  const dayFactor = smoothstep(-0.22, 0.22, sinAngle);
+  sun.intensity = 2.4 * dayFactor;
+
+  const warmMix = smoothstep(0.05, 0.6, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+```
+Unique.
+
+Edit 13b: FIND:
+```
+  hemi.intensity = lerp(0.45, 1.5, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky);
+  hemi.groundColor.copy(groundColor);
+```
+Replace:
+```
+  hemi.intensity = lerp(0.5, 1.1, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky).lerp(whiteColor, 0.35);
+  hemi.groundColor.copy(groundColor);
+
+  fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);
+  fill.target.position.set(0, 0, 0);
+  fill.color.copy(sky).lerp(whiteColor, 0.6);
+  fill.intensity = lerp(0.15, 0.9, dayFactor);
+```
+This does not include moon lines, so no overlap with Edit 12. Good. But note Edit 12 FIND includes `moon.target.position.set(0, 0, 0);` and Edit 13b FIND includes `hemi...` only. No overlap. Good.
+
+Need also ensure Edit 12 FIND unique. It includes `moon = new THREE.DirectionalLight...` only in init, while applyTime has `moon.position` but not `moon =`. Good.
+
+Need check Edit 13a FIND unique. `const dayFactor` occurs only applyTime? Yes. `sun.intensity = 3.0` only there. Good.
+
+Need check Edit 13b FIND unique. `hemi.intensity = lerp(0.45, 1.5, dayFactor);` only there. Good.
+
+Now Edit 14 updatePresets. No overlap.
+
+Edit 15 updatePetals. No overlap.
+
+Edit 16 CSS. No overlap.
+
+Edit 17 markup. No overlap.
+
+Edit 18 buildTrees branches. No overlap with Edit 19? Edit 19 FIND is `layout.trees.push` block at end of buildTrees. Edit 18 FIND is color branches earlier in buildTrees. They don't overlap. Good.
+
+Edit 19 call buildLanterns. No overlap.
+
+Need also consider C9 buildLanterns function insertion and Edit 19 call. Good.
+
+Now, need ensure all FIND texts exactly match. Let's carefully verify each with original. I'll produce final answer with edit blocks only. Need no extra text. But before final, let's double-check all changes and possible runtime issues.
+
+C2: layout.pond.interior is filled in applyPond. But `buildKoiData` is called after `scatterSteppingStones` in rebuildWorld. Wait order:
+```
+  buildIsland(rng);
+  buildPagoda(rng);
+  computePond(rng);
+  buildPathAndTorii(rng);
+  applyPond(rng);
+  buildBridge();
+  buildTrees(rng);
+  buildLanterns(rng);
+  scatterSteppingStones(rng);
+  buildKoiData(rng);
+```
+Yes, applyPond before buildKoiData. Good.
+
+C2: computePond sets `layout.pond` with interior new Set and centroid {0,0}. Then applyPond replaces interior and centroid. Good.
+
+C2: In buildKoiData, `layout.pond.centroid` exists. Good.
+
+C2: If pond interior empty? Then all loops invalid. But pond has interior likely. If not, loopA/B after 14 attempts maybe min; still invalid. Koi might leave water. But spec says validate; we do. Could improve by if `!validLoop` set loopA=1.0, loopB=1.2 and maybe still invalid. But no better. However, if interior is empty, no valid loop. But pond likely >120 cells so interior non-empty. Fine.
+
+C2: "Keep the number of rng() calls per koi fixed (do the validation without rng)." We do. But note we changed `const cx = layout.pond.centroid.x + (rng() * 1.6 - 0.8);` uses one rng call; original used `rng() * 2 - 1` one call. Same. Good.
+
+C2: "the loop centre becomes the centroid plus a seeded offset of -0.8 to 0.8 on each axis." Yes.
+
+C2: "After choosing a and b, validate the loop: sample 64 phases around it; for every sample the cell (Math.round(x), Math.round(z)) must be in layout.pond.interior." We compute sampleX = Math.round(cx + loopA*cos), sampleZ = Math.round(cz + loopB*sin). Good.
+
+C2: "If any sample fails, multiply a and b by 0.88 and test again, at most 14 times, never letting a go below 1.0 or b below 1.2." Our loop does 14 attempts; after each failed attempt multiply. At attempt 0, test original. If fails, multiply. After 14 failures, loop ends. We never let below min. Good. But note "at most 14 times" could mean 14 multiplications (i.e., 15 tests). We do 14 tests, then up to 14 multiplications? Actually loop runs attempt=0..13 (14 iterations). In each iteration, test; if fail multiply. So up to 14 tests and 14 multiplications. That's within "at most 14 times" maybe. Good.
+
+C1: water opacity 0.6, koi scales updated, y -0.08. Good.
+
+C3: fill light. Need ensure `fill` is not null in applyTime. init creates fill before applyTime. Good. But `applyTime` might be called by time slider before init? setupUI attaches listeners, but init calls setupUI then rebuildWorld etc. No user interaction before init completes. Fine.
+
+C3: `whiteColor` declared before applyTime. Yes.
+
+C3: `groundColor` 0x8c8172. HemisphereLight created with 0x8c8172. Good.
+
+C3: `hemi.color.copy(sky).lerp(whiteColor, 0.35);` Good. Fill color similar.
+
+C4: Pagoda pos (31,22,45), target (0,16.5,0). Pond pos px+17,18,pz+16. Good.
+
+C5: Petal near camera scale zero. We compute dx,dy,dz. Good. But note `dummy.scale` is used for petals; we set zero. The petal still gets matrix. Good. `camera` is module-level. Fine.
+
+C6: fireflies size 1.5. Good.
+
+C7: CSS `.speed-label` and `.play-row .val`, play-btn min-width 88. Markup span. Good. Need ensure `.play-row .val` selector applies to speedValue. Yes.
+
+C8: color branches. Good.
+
+C9: lanterns. Need function `buildLanterns(rng)` inserted. Uses `for (const x of [-3, 3])`. z=11. If hasVoxel(x,1,z) skip. Else set y=1 PLINTH_COLORS[0], y=2 PLINTH_COLORS[2], y=3 0xffe7a3, y=4 0x4a4a50. Good. Called after buildTrees. `scatterSteppingStones` skips cells with voxel at y=1; lantern at x=-3/3,z=11 has y=1, so skipped. Good.
+
+Potential issue: `buildLanterns` uses `rng` unused. Fine.
+
+Need ensure no new TODO/FIXME or line ending with three dots. None.
+
+Now, need produce answer with `### EDIT` titles and markers. We can combine some edits? We have 19 edits. Need list. Let's enumerate final edit numbering:
+
+1 water opacity
+2 fireflies size
+3 groundColor/whiteColor
+4 fill declaration
+5 layout literal pond fields
+6 resetLayout pond fields
+7 computePond pond fields
+8 applyPond interior/centroid
+9 buildKoiData
+10 writeKoiMatrices y
+11 hemi light init
+12 fill light init
+13 applyTime day/sun
+14 applyTime hemi/fill
+15 updatePresets
+16 updatePetals
+17 CSS
+18 markup
+19 buildTrees colors
+20 buildLanterns function
+21 call buildLanterns
+
+That's 21 edits. We can combine 13 and 14? They are separate FINDs. Fine. Need ensure no overlap. Edit 13 FIND dayFactor/sun/warmMix. Edit 14 FIND hemi.intensity through hemi.groundColor. No overlap. Good.
+
+Need maybe combine Edit 11 and 12? They are separate. Fine.
+
+Need ensure Edit 5 and 6 and 7 unique. Let's check Edit 5 FIND starts `let layout = {`. The file also has `let layout = {` only once? Yes, resetLayout has `layout = {` not `let layout`. Good. Edit 5 unique.
+
+Edit 6 FIND includes `function resetLayout() {` unique. Good.
+
+Edit 7 FIND `  layout.pond = {` unique? There is also `layout.pond = {` maybe only computePond. Yes.
+
+Edit 8 applyPond unique. Good.
+
+Edit 9 buildKoiData unique. Good.
+
+Edit 10 `dummy.position.set(x, -0.42, z);` unique? There is also `dummy.position.set(x, -0.1, z);` in water, `dummy.position.set(x, y, z);` etc. -0.42 only once. Good.
+
+Edit 11 hemi init line unique? There is `hemi = new THREE.HemisphereLight...` only once. Good.
+
+Edit 12 moon init block unique. Good.
+
+Edit 13 dayFactor block unique. Good.
+
+Edit 14 hemi intensity block unique. Good.
+
+Edit 15 updatePresets block unique. Good.
+
+Edit 16 updatePetals block unique. Good.
+
+Edit 17 CSS block unique. Good.
+
+Edit 18 markup block unique. Good.
+
+Edit 19 buildTrees branches unique. Good.
+
+Edit 20 buildTrees end block unique. Good.
+
+Edit 21 rebuildWorld call block unique. Good.
+
+Need ensure Edit 20 FIND `layout.trees.push` block is unique. There is only one push to layout.trees. Good. It includes closing `}` of for and function. Need exact indentation. Let's copy:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+```
+Yes. Replace with same plus blank line and function. Need ensure we don't accidentally include the next `function buildKoiData` line, so no overlap. Good.
+
+Edit 21 call block:
+```
+  buildBridge();
+  buildTrees(rng);
+  scatterSteppingStones(rng);
+```
+Replace with add `buildLanterns(rng);`. Good.
+
+Now, we need be careful about the exact text of C7 CSS. Original CSS block:
+```
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+```
+We replace with:
+```
+  .speed-label {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #cfd8e6;
+  }
+
+  .play-row .val {
+    min-width: 22px;
+  }
+
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 88px;
+    white-space: nowrap;
+  }
+```
+Good.
+
+Markup replace:
+```
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <span class="speed-label">speed</span>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+```
+Good.
+
+Need ensure no other `.play-row` CSS? There is `.play-row { gap: 6px; }` earlier. Our `.play-row .val` fine.
+
+Now, let's double-check C8 replacement percentages. Middle branch: 
+```
+if (pick < 0.40) color = BLOSSOM_COLORS[0];
+else if (pick < 0.65) color = BLOSSOM_COLORS[1];
+else if (pick < 0.90) color = BLOSSOM_COLORS[2];
+else color = BLOSSOM_COLORS[3];
+```
+That's [0] 40%, [1] 25%, [2] 25%, [3] 10%. Good.
+Outer:
+```
+if (pick < 0.45) color = BLOSSOM_COLORS[2];
+else if (pick < 0.75) color = BLOSSOM_COLORS[0];
+else color = BLOSSOM_COLORS[3];
+```
+[2] 45%, [0] 30%, [3] 25%. Good.
+
+Now, need consider C3 `fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);` This sets position then normalizes? `Vector3.set` returns vector, `.normalize()` then `.multiplyScalar(80)`. Good.
+
+Need consider `fill.target` added to scene. In init:
+```
+  fill = new THREE.DirectionalLight(0xffffff, 0);
+  fill.castShadow = false;
+  fill.position.set(-sunDir.x, 0.25, -sunDir.z).normalize().multiplyScalar(80);
+  fill.target.position.set(0, 0, 0);
+  scene.add(fill);
+  scene.add(fill.target);
+```
+Wait we planned fill init block with only creation and add, not position? Brief says after moon create fill light: `fill = new THREE.DirectionalLight(0xffffff, 0);` `fill.castShadow = false;` add fill and fill.target to scene. Position set in applyTime every call. So init fill block:
+```
+  fill = new THREE.DirectionalLight(0xffffff, 0);
+  fill.castShadow = false;
+  fill.target.position.set(0, 0, 0);
+  scene.add(fill);
+  scene.add(fill.target);
+```
+Should we set target position in init? It's okay. But applyTime sets it. We can set. The brief only says create fill, castShadow false, add fill and fill.target. We'll include target position set maybe harmless. But ensure no extra? Fine. Could omit target position in init. But applyTime sets. We'll include `fill.target.position.set(0, 0, 0);` to be safe. Good.
+
+Edit 12 REPLACE:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  fill = new THREE.DirectionalLight(0xffffff, 0);
+  fill.castShadow = false;
+  fill.target.position.set(0, 0, 0);
+  scene.add(fill);
+  scene.add(fill.target);
+
+  glowTexture = makeGlowTexture();
+```
+Good.
+
+Need ensure `fill` declared before init. Yes Edit 4.
+
+Now, potential issue: `applyTime` called in init after fill created. Good.
+
+Now, potential issue: `hemi.color.copy(sky).lerp(whiteColor, 0.35);` This mutates hemi.color. Good. `fill.color.copy(sky).lerp(whiteColor, 0.6);` Good.
+
+Now, potential issue: C2 `applyPond` uses `interiorKeys` and `sumX/sumZ`. It adds interior keys only for cells where all 4 neighbors pond. Good. `pond.interior = interiorKeys;` replaces the Set from computePond. Good. `pond.centroid` mean of all pond cells. Good.
+
+Need ensure `pond.cellList.length` not zero. If zero, centroid fallback. Good.
+
+Now, need maybe update `layout.pond.waterCells` initial? It's in computePond empty. applyPond pushes. Good.
+
+Now, let's think about whether buildKoiData validation uses `layout.pond.interior` before it is set? applyPond sets it. Yes.
+
+Now, final answer must be only edit blocks. Need no prose. We'll output each block exactly. Use markers at column 0. The content between FIND and REPLACE must preserve indentation. Need no trailing spaces? We'll avoid. Need ensure no line ending with three dots. None.
+
+Let's write final carefully.
+
+Double-check each FIND exactness with original. I'll re-read original snippets from previous answer.
+
+Original waterMaterial:
+```
+const waterMaterial = new THREE.MeshLambertMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.72,
+  depthWrite: false
+});
+```
+Yes.
+
+Original firefliesMaterial:
+```
+const firefliesMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 0.9,
+  sizeAttenuation: true,
+  transparent: true,
+```
+We include only first four lines. Yes.
+
+Original groundColor:
+```
+const groundColor = new THREE.Color(0x6b5a45);
+const tmpColor = new THREE.Color();
+```
+Yes.
+
+Original declarations:
+```
+let sun = null;
+let hemi = null;
+let moon = null;
+
+let staticMesh = null;
+```
+Yes.
+
+Original layout literal: Let's verify indentation and content. From file:
+```
+let layout = {
+  edgePhases: { a: 0, b: 0, c: 0 },
+  edgeRadiusFn: null,
+  pond: {
+    px: 0,
+    pz: 0,
+    rx: 0,
+    rz: 0,
+    cells: new Set(),
+    cellList: [],
+    waterCells: []
+  },
+  pathCells: new Set(),
+```
+Our FIND includes through `  },` after waterCells. Yes.
+
+Original resetLayout:
+```
+function resetLayout() {
+  layout = {
+    edgePhases: { a: 0, b: 0, c: 0 },
+    edgeRadiusFn: null,
+    pond: {
+      px: 0,
+      pz: 0,
+      rx: 0,
+      rz: 0,
+      cells: new Set(),
+      cellList: [],
+      waterCells: []
+    },
+```
+Yes.
+
+Original computePond:
+```
+  layout.pond = {
+    px,
+    pz,
+    rx,
+    rz,
+    cells,
+    cellList,
+    waterCells: []
+  };
+```
+Yes.
+
+Original applyPond: copy exactly. Good.
+
+Original buildKoiData: copy exactly. Need ensure `const scales = [0.55, 0.6, 0.5, 0.4, 0.3];` yes. Good.
+
+Original writeKoiMatrices:
+```
+    dummy.position.set(x, -0.42, z);
+    dummy.rotation.set(0, yaw, 0);
+```
+Yes.
+
+Original hemi init:
+```
+  hemi = new THREE.HemisphereLight(0xa8d8f8, 0x6b5a45, 1.5);
+```
+Yes.
+
+Original moon init block:
+```
+  moon = new THREE.DirectionalLight(0x9fb8ff, 0);
+  moon.position.copy(moonDir).multiplyScalar(80);
+  moon.target.position.set(0, 0, 0);
+  scene.add(moon);
+  scene.add(moon.target);
+
+  glowTexture = makeGlowTexture();
+```
+Yes.
+
+Original applyTime day block:
+```
+  const dayFactor = smoothstep(-0.1, 0.25, sinAngle);
+  sun.intensity = 3.0 * dayFactor;
+
+  const warmMix = smoothstep(-0.05, 0.65, sinAngle);
+  sun.color.lerpColors(sunWarmColor, sunWhiteColor, warmMix);
+```
+Yes.
+
+Original applyTime hemi block:
+```
+  hemi.intensity = lerp(0.45, 1.5, dayFactor);
+
+  const sky = skyColorAt(h);
+  scene.background.copy(sky);
+  scene.fog.color.copy(sky);
+  hemi.color.copy(sky);
+  hemi.groundColor.copy(groundColor);
+```
+Yes.
+
+Original updatePresets:
+```
+  presets.push({
+    pos: new THREE.Vector3(29, 21, 42),
+    target: new THREE.Vector3(0, 16, 0)
+  });
+
+  presets.push({
+    pos: new THREE.Vector3(layout.pond.px + 15, 16, layout.pond.pz + 14),
+    target: new THREE.Vector3(layout.pond.px, 0.5, layout.pond.pz)
+  });
+```
+Yes.
+
+Original updatePetals lines:
+```
+    dummy.position.set(petalPos[i3], petalPos[i3 + 1], petalPos[i3 + 2]);
+    dummy.rotation.set(petalRot[i3], petalRot[i3 + 1], petalRot[i3 + 2]);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    petalMesh.setMatrixAt(i, dummy.matrix);
+```
+Yes.
+
+Original CSS:
+```
+  .play-btn {
+    flex: 0 0 auto;
+    min-width: 92px;
+    white-space: nowrap;
+  }
+```
+Yes.
+
+Original markup:
+```
+  <div class="row play-row">
+    <button id="playBtn" class="btn play-btn">▶ Play cycle</button>
+    <input id="speedSlider" type="range" min="0.1" max="3" step="0.1" value="0.6">
+    <span id="speedValue" class="val">0.6</span>
+  </div>
+```
+Yes.
+
+Original buildTrees branches: copy. Good.
+
+Original buildTrees end:
+```
+    layout.trees.push({
+      x: treeX,
+      z: treeZ,
+      r: canopyRadius,
+      trunkHeight,
+      canopyY: trunkHeight
+    });
+  }
+}
+```
+Yes.
+
+Original rebuildWorld call:
+```
+  buildBridge();
+  buildTrees(rng);
+  scatterSteppingStones(rng);
+```
+Yes.
+
+Now, need ensure edits don't overlap: Edit 20 FIND buildTrees end. Edit 19 FIND color branches. They don't overlap. Edit 21 call block. Good.
+
+Potential issue: Edit 9 buildKoiData FIND includes `function buildKoiData(rng) {`. Edit 20 FIND ends at `}` of buildTrees, not including `function buildKoiData`. So no overlap. Good.
+
+Potential issue: Edit 8 applyPond FIND ends with `}`. Edit 9 starts next function. No overlap. Good.
+
+Potential issue: Edit 13a and 13b: They are separated by moon lines. No overlap. Good.
+
+Now, final answer. Need include all blocks. Ensure no extra text before first block. The instructions say answer with a list of edits in exactly this form, one block per edit, and nothing else before, between or after the blocks except the `### EDIT` title lines. So we can have `### EDIT 1: ...` then block, then `### EDIT 2: ...` etc. No extra. Good.
+
+Let's produce.
+
+Wait, one more check: C2 `layout.pond.interior` set in applyPond, but `buildKoiData` validation samples `Math.round(cx + loopA * Math.cos(phase))`. If loopA/B are floats, okay. The pond interior set uses integer keys. Good.
+
+Need ensure `layout.pond.centroid` mean of all pond cells, including rim. Good.
+
+Potential issue: `applyPond` uses `const interior = ...` and then `interiorKeys.add`. Good.
+
+Potential issue: In `buildKoiData`, we use `const a` and `const b`, then `let loopA = a; let loopB = b;`. Good. But fish push uses `a: loopA, b: loopB`. Good.
+
+Potential issue: `layout.pond.interior` might be undefined if buildKoiData called before applyPond? In rebuildWorld order, applyPond before. Good.
+
+Potential issue: `buildLanterns` called before `scatterSteppingStones`, so stepping stones skip lantern cells because `hasVoxel(x,1,z)` true. Good.
+
+Potential issue: Lantern at x=-3,z=11 might be on path? Path is x -1..1, so x=-3 outside. Good.
+
+Potential issue: C9 "For x = -3 and x = 3 at z = 11: skip the lantern if hasVoxel(x, 1, z); otherwise set..." Our function does. Good.
+
+Now final.
