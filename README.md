@@ -8,7 +8,7 @@
 
 | 과제 | 내용 | 모델 | 상위 결과 |
 |---|---|--:|---|
-| [桜の庭 · sakura-no-niwa](sakura-no-niwa/) | 단일 HTML Three.js 복셀 정원 — 5층 목탑, 토리이, 잉어 연못, 꽃잎, 낮/밤 순환 | 10 (결과물 13) | gpt-6.1-sol (CLI), gpt-6.1-terra (Codex 앱), claude-opus-5.5, claude-sonnet-5.5 |
+| [桜の庭 · sakura-no-niwa](sakura-no-niwa/) | 단일 HTML Three.js 복셀 정원 — 5층 목탑, 토리이, 잉어 연못, 꽃잎, 낮/밤 순환 | 13 (결과물 16, 지적 후 수정본 1, 감독 실행 4 별도) | gpt-6.1-sol (CLI), gpt-6.1-terra (Codex 앱), claude-opus-5.5, claude-sonnet-5.5, gpt-6.2-sol (Codex 앱), gpt-6.2-astra 수정본 (위반 지적 후 수정) |
 | [tetris](tetris/) | 단일 HTML 테트리스 — 홀드·넥스트 패널 포함 | 1 | 사양서·모델 기록 없음 |
 
 ## 규칙

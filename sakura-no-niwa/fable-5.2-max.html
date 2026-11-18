@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>桜の庭 · Voxel Pagoda Garden</title>
+<style>
+  :root {
+    --pink: #f7a8c4; --pink-deep: #ee7fa8;
+    --ink: rgba(13, 15, 23, .74); --line: rgba(255, 255, 255, .10);
+    --txt: #eceef4; --dim: #a0a8ba; --btn: rgba(255, 255, 255, .07); --btn-hi: rgba(255, 255, 255, .15);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe9f7; }
+  body { font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: var(--txt); -webkit-font-smoothing: antialiased; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; cursor: grab; }
+  #view:active { cursor: grabbing; }
+
+  /* ── control panel (top-left) ─────────────────────────────── */
+  #panel {
+    position: fixed; top: 12px; left: 12px; z-index: 5; width: 264px; max-height: calc(100% - 24px); overflow: auto;
+    background: var(--ink); border: 1px solid var(--line); border-radius: 11px;
+    -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25);
+    box-shadow: 0 12px 34px rgba(8, 10, 24, .30); user-select: none; -webkit-user-select: none;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent;
+  }
+  #panel header { display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px 13px; border-bottom: 1px solid var(--line); }
+  #panel h1 { margin: 0; flex: 1; font-size: 12px; font-weight: 650; letter-spacing: .09em; text-transform: none; }
+  #panel h1::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 2px; background: var(--pink); box-shadow: 0 0 10px var(--pink-deep); transform: rotate(45deg) translateY(-1px); }
+  #seedTag { font: 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--dim); letter-spacing: .04em; }
+  #fold { width: 20px; height: 20px; padding: 0; border-radius: 6px; line-height: 1; font-size: 13px; color: var(--dim); }
+  #panel.min .body { display: none; }
+  #panel.min header { border-bottom: 0; }
+  .body { padding: 10px 12px 9px; display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; column-gap: 8px; }
+  .row > span { color: var(--dim); }
+  .row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--txt); }
+  .row.play { grid-template-columns: auto 1fr; }
+  .spd { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 7px; color: var(--dim); }
+  input[type=range] { width: 100%; min-width: 0; height: 16px; margin: 0; accent-color: var(--pink); cursor: pointer; }
+  button {
+    font: inherit; color: var(--txt); background: var(--btn); border: 1px solid var(--line); border-radius: 7px;
+    padding: 5px 9px; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, color .15s, transform .08s;
+  }
+  button:hover { background: var(--btn-hi); border-color: rgba(255, 255, 255, .22); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+  button.on { background: rgba(247, 168, 196, .22); border-color: rgba(247, 168, 196, .65); color: #fff; }
+  #play { min-width: 104px; text-align: left; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; padding: 7px 0 6px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .checks input { margin: 0; width: 13px; height: 13px; accent-color: var(--pink); cursor: pointer; }
+  .presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .presets button { grid-column: span 2; padding: 5px 1px; }
+  .presets button:nth-child(n+4) { grid-column: span 3; }
+  .presets b { display: inline-block; min-width: 14px; margin-right: 3px; padding: 0 3px; border-radius: 4px; background: rgba(255, 255, 255, .13); font-weight: 600; font-size: 10.5px; color: var(--pink); }
+  .actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 5px; }
+  #status { margin: 1px -12px -9px; padding: 7px 12px 8px; border-top: 1px solid var(--line); background: rgba(0, 0, 0, .22); border-radius: 0 0 10px 10px;
+    font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; color: #c9d0de; font-variant-numeric: tabular-nums; }
+
+  /* ── title overlay (top-right) and hint ───────────────────── */
+  #title { position: fixed; top: 16px; right: 22px; z-index: 4; text-align: right; pointer-events: none; color: #fff; text-shadow: 0 2px 16px rgba(24, 30, 66, .5), 0 1px 2px rgba(24, 30, 66, .35); }
+  #title .jp { font: 600 46px/1.05 "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "Songti SC", serif; letter-spacing: .08em; margin-right: -.08em; }
+  #title .en { margin-top: 7px; font-size: 10.5px; font-weight: 500; letter-spacing: .44em; margin-right: -.44em; opacity: .9; }
+  #hint { position: fixed; right: 22px; bottom: 14px; z-index: 4; pointer-events: none; font-size: 10.5px; letter-spacing: .08em; color: rgba(255, 255, 255, .78); text-shadow: 0 1px 8px rgba(24, 30, 66, .55); }
+  #boot { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; background: linear-gradient(#8fc3ec, #d9eefa); color: #fff; letter-spacing: .2em; font-size: 12px; text-shadow: 0 1px 10px rgba(24, 30, 66, .4); }
+  #boot.err { background: #171a24; letter-spacing: .02em; }
+  #boot.err .msg { max-width: 460px; padding: 0 24px; line-height: 1.6; color: #ffd9e4; text-align: center; }
+  @media (max-width: 620px) {
+    #panel { width: 236px; }
+    .presets { gap: 4px; }
+    .presets button { padding: 5px 1px; font-size: 10.5px; }
+    .presets b { min-width: 12px; margin-right: 2px; padding: 0 2px; font-size: 9.5px; }
+    #title { top: 14px; right: 14px; }
+    #title .jp { font-size: 26px; }
+    #title .en { font-size: 7px; letter-spacing: .1em; margin-right: -.1em; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="view" tabindex="-1" aria-label="Voxel pagoda garden"></canvas>
+
+<div id="panel" role="region" aria-label="Controls">
+  <header>
+    <h1>Controls</h1>
+    <span id="seedTag" title="World seed (also stored in the URL hash)"></span>
+    <button id="fold" type="button" aria-label="Collapse panel" title="Collapse panel">–</button>
+  </header>
+  <div class="body">
+    <label class="row"><span>Time</span><input id="time" type="range" min="0" max="24" step="0.01" value="9.5"><output id="timeOut">09:30</output></label>
+    <div class="row play">
+      <button id="play" type="button" aria-pressed="false">▶ Play cycle</button>
+      <label class="spd"><span>speed</span><input id="speed" type="range" min="0.1" max="3" step="0.1" value="0.6"></label>
+    </div>
+    <label class="row"><span>Petals</span><input id="petals" type="range" min="0" max="3000" step="10" value="1200"><output id="petalsOut">1200</output></label>
+    <label class="row"><span>Wind</span><input id="wind" type="range" min="0" max="1" step="0.01" value="0.35"><output id="windOut">0.35</output></label>
+    <div class="checks">
+      <label><input id="autoRotate" type="checkbox">Auto-rotate</label>
+      <label><input id="shadows" type="checkbox" checked>Shadows</label>
+      <label><input id="fireflies" type="checkbox" checked>Fireflies</label>
+      <label><input id="waterAnim" type="checkbox" checked>Water anim</label>
+      <label><input id="wireframe" type="checkbox">Wireframe</label>
+    </div>
+    <div class="presets">
+      <button type="button" data-view="0"><b>1</b> Overview</button>
+      <button type="button" data-view="1"><b>2</b> Pagoda</button>
+      <button type="button" data-view="2"><b>3</b> Pond</button>
+      <button type="button" data-view="3"><b>4</b> Torii</button>
+      <button type="button" data-view="4"><b>5</b> Blossoms</button>
+    </div>
+    <div class="actions">
+      <button id="regen" type="button">Regenerate seed</button>
+      <button id="reset" type="button">Reset view</button>
+    </div>
+    <div id="status">voxels: 0   09:30   fps: 0</div>
+  </div>
+</div>
+
+<div id="title"><div class="jp">桜の庭</div><div class="en">VOXEL PAGODA GARDEN</div></div>
+<div id="hint">drag · orbit &nbsp;&nbsp; right-drag · pan &nbsp;&nbsp; scroll · zoom &nbsp;&nbsp; 1–5 · views</div>
+<div id="boot"><div class="msg">Growing the garden…</div></div>
+
+<script>
+  // Plain (non-module) watchdog: if the ES-module app never reports ready, explain why instead of leaving a blank page.
+  window.__sakuraFail = function (why) {
+    var b = document.getElementById('boot'); if (!b) return;
+    b.classList.add('err'); b.firstElementChild.textContent = why;
+  };
+  window.addEventListener('error', function (e) {
+    if (!window.__sakuraReady) window.__sakuraFail('Could not start: ' + (e.message || 'a script failed to load') +
+      '. This page loads three.js from a CDN and must be served over http(s), not opened from file://');
+  }, true);
+  setTimeout(function () {
+    if (!window.__sakuraReady) window.__sakuraFail('Still waiting for three.js from the CDN. Check the network connection, and serve this file over http(s) rather than file://');
+  }, 12000);
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ════════════════════════════════════════════════════════════════════════════
+   桜の庭 — Voxel Pagoda Garden
+   Layout of this file
+     1. world      pure JS: seeded PRNG, voxel grid, every generator, camera-view solver
+     2. renderer   three.js scene, sky, lights, the shared cube and its InstancedMeshes
+     3. life       water, koi, petals, fireflies, clouds
+     4. clock      day/night keyframes
+     5. camera     eased preset flights on wall-clock time
+     6. ui + loop
+   Section 1 has no three.js or DOM dependency, so it can be run headless to sweep seeds.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+//#region world
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; else if (d < -Math.PI) d += TAU; return d; };
+const mixHex = (a, b, t) =>
+  (Math.round(lerp(a >> 16 & 255, b >> 16 & 255, t)) << 16) | (Math.round(lerp(a >> 8 & 255, b >> 8 & 255, t)) << 8) | Math.round(lerp(a & 255, b & 255, t));
+
+/** mulberry32 — the only source of randomness in this file (world, seeds, petals, fireflies, stars). */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Voxel grid: integer cells, +X east, +Y up, +Z south. Grass sits at y = 0.
+const GX = 40, GY0 = -40, GY1 = 46;
+const SX = GX * 2 + 1, SZ = SX, SY = GY1 - GY0 + 1;
+const T = { TERRAIN: 1, PATH: 2, PAGODA: 3, TORII: 4, BRIDGE: 5, PROP: 6, PLANT: 7, ISLET: 8, WATER: 9, GLOW: 10, TREE: 16 };
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+const PAL = {
+  grass: [0x63a544, 0x72b64e, 0x84c75c], dirt: [0x8b6341, 0x7b5638, 0x6d4b31], rock: [0x92959c, 0x7f828a, 0x6c6f77, 0x5a5d65],
+  stone: [0xcfcfc9, 0xbdbdb7, 0xacada8], sand: 0xcabf8e, pondDeep: 0x2f5f70, bank: [0x6f7868, 0x5f6959], pebble: 0xa6a69a,
+  waterShallow: 0x6cc4ee, waterDeep: 0x2b6fc4,
+  timber: [0x1d1917, 0x27201c], plaster: [0xf2ede0, 0xe7e1d2], red: 0xb82a20, door: 0x7c2018,
+  roof: [0x23262e, 0x2c3039], roofEdge: 0x454c5b, gold: 0xe8b93c, goldHi: 0xffdc6e, base: [0xbcbcb6, 0xacada7], baseEdge: 0x8e9091,
+  toriiRed: [0xcf2b1f, 0xbd251b], toriiBlack: 0x1b1b1e,
+  trunk: [0x4a3023, 0x3c261c], blossom: [0xea7fa6, 0xf5a5c3, 0xfbcbdc, 0xfff1f6], fallen: [0xf6bcd0, 0xf2a8c2],
+  maple: [[0x9c2f2a, 0xb83a2c, 0xd0502f, 0xe06a3a], [0x5a9c36, 0x74b03e, 0x8fc24a, 0xa9d35c]], moss: [0x6f8f4e, 0x5d7f44],
+  bush: [0x3f7f3c, 0x4a9045, 0x357034], azalea: [0xe9609c, 0xfff0f4], pine: [0x2f6a3d, 0x275a34], pineTrunk: 0x54392a,
+  bamboo: [0x86b85c, 0x76a850], bambooNode: 0x5f8f45, bambooLeaf: 0x9bcf6a, reed: 0x8bc45a, reedTip: 0x6b4a2a, vine: [0x4f9a43, 0x3f8438],
+  plank: [0x3d2b22, 0x49342a], post: 0x2b1e19, cap: 0xb5332a, lantern: [0x9a9c9f, 0x84868a], glow: [0xffcf7a, 0xffbd5c],
+  cloud: [0xffffff, 0xf2f6fc, 0xdde6f1],
+};
+// per-voxel brightness jitter by tag — keeps big flat surfaces from looking like plastic
+const JITTER = { 1: .10, 2: .08, 3: .045, 4: .04, 5: .08, 6: .08, 7: .12, 8: .10 };
+const KOI_SEG = 8, FLY_COUNT = 80;                   // body segments per koi · fireflies
+
+/**
+ * Build one island from a seed. Everything is written into a dense voxel grid first (later writes win),
+ * then only voxels with an exposed face are emitted — so the ~16k instance budget is spent on what is visible.
+ */
+function generateWorld(seed, budget = 16000) {
+  const rng = mulberry32(seed);
+  const R = (a, b) => a + (b - a) * rng();
+  const RI = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  const chance = p => rng() < p;
+  const salt = (rng() * 4294967296) | 0;
+  const hash = (x, y, z) => {                       // stateless per-cell random in [0,1), salted by the seed
+    let h = Math.imul((x + salt) | 0, 0x27d4eb2d) ^ Math.imul((y + 0x3c6ef372) | 0, 0x165667b1) ^ Math.imul((z - salt) | 0, 0x9e3779b1);
+    h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
+  };
+  const lattice = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) lattice[i] = rng();
+  const lat = (ix, iz) => lattice[((ix & 31) << 5) | (iz & 31)];
+  const noise = (x, z) => {                         // smooth 2D value noise in [0,1]
+    const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+    const u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+    return lerp(lerp(lat(ix, iz), lat(ix + 1, iz), u), lerp(lat(ix, iz + 1), lat(ix + 1, iz + 1), u), v);
+  };
+
+  // ── voxel store ────────────────────────────────────────────────────────────
+  const tag = new Uint8Array(SX * SY * SZ), col = new Int32Array(SX * SY * SZ);
+  const inb = (x, y, z) => x >= -GX && x <= GX && z >= -GX && z <= GX && y >= GY0 && y <= GY1;
+  const I = (x, y, z) => ((y - GY0) * SZ + (z + GX)) * SX + (x + GX);
+  const get = (x, y, z) => (inb(x, y, z) ? tag[I(x, y, z)] : 0);
+  const set = (x, y, z, c, t) => { if (inb(x, y, z)) { const i = I(x, y, z); tag[i] = t; col[i] = c; } };
+  const put = (x, y, z, c, t) => { if (inb(x, y, z) && tag[I(x, y, z)] === 0) set(x, y, z, c, t); };   // only into empty space
+  const del = (x, y, z) => { if (inb(x, y, z)) tag[I(x, y, z)] = 0; };
+  const opaque = (x, y, z) => { const t = get(x, y, z); return t !== 0 && t !== T.WATER; };
+
+  // per-column maps: terrain top (-128 = no island) and what the surface is used for
+  const CI = (x, z) => (z + GX) * SX + (x + GX);
+  const topY = new Int8Array(SX * SZ).fill(-128), botY = new Int8Array(SX * SZ);
+  const surf = new Uint8Array(SX * SZ);              // 0 none · 1 grass · 2 path · 3 water · 4 occupied
+  const inIsland = (x, z) => Math.abs(x) <= GX && Math.abs(z) <= GX && topY[CI(x, z)] > -128;
+  const surfAt = (x, z) => (Math.abs(x) <= GX && Math.abs(z) <= GX ? surf[CI(x, z)] : 0);
+  const isLawn = (x, z) => surfAt(x, z) === 1;
+
+  // ── layout decisions ───────────────────────────────────────────────────────
+  const side = chance(0.5) ? 1 : -1;                 // pond on the east (+1) or west (-1); the gate goes to the other side
+  const ph = [R(0, TAU), R(0, TAU), R(0, TAU), R(0, TAU)];
+  const rimR = a => 22 + 1.0 * Math.sin(2 * a + ph[0]) + 0.7 * Math.sin(3 * a + ph[1]) + 0.5 * Math.sin(5 * a + ph[2]) + 0.35 * Math.sin(9 * a + ph[3]);
+  const pond = { a: side * R(1.08, 1.92), r: R(14.8, 15.4), ar: R(3.9, 4.5), at: R(9.6, 11.8), cells: [], set: new Set(), bed: new Map() };
+  const pondField = (x, z) => {                      // < 1 inside the pond; the pond is an arc that follows the island's curve
+    const u = (Math.hypot(x, z) - pond.r) / pond.ar, v = angDiff(Math.atan2(x, z), pond.a) * pond.r / pond.at;
+    return u * u + v * v + (noise(x * 0.23 + 31.5, z * 0.23 + 17.5) - 0.5) * 0.55;
+  };
+  const pcx = pond.r * Math.sin(pond.a), pcz = pond.r * Math.cos(pond.a), sux = Math.sin(pond.a), suz = Math.cos(pond.a);
+  const streamDist = (x, z) => {                     // distance to the outlet stream that runs from the pond to the rim
+    const along = (x - pcx) * sux + (z - pcz) * suz;
+    return along < 0 ? Math.hypot(x - pcx, z - pcz) : Math.abs((x - pcx) * suz - (z - pcz) * sux);
+  };
+  const tx = -side * RI(2, 9);                       // torii x; its z is found once the rim is known
+  const tipX = R(-3, 3), tipZ = R(-3, 3);
+
+  // pass 1: footprint
+  const inside = new Uint8Array(SX * SZ);
+  for (let x = -27; x <= 27; x++) for (let z = -27; z <= 27; z++) {
+    const rim = rimR(Math.atan2(x, z)) + (noise(x * 0.8 + 70.3, z * 0.8 + 70.9) - 0.5) * 2.2;
+    if (Math.hypot(x, z) <= rim) inside[CI(x, z)] = 1;
+  }
+  let tz = 30;
+  for (let xx = tx - 4; xx <= tx + 4; xx++) { let zm = 27; while (zm > 0 && !inside[CI(xx, zm)]) zm--; tz = Math.min(tz, zm); }
+  tz -= 2;
+  const pathX = z => Math.round(tx * smooth(12.5, Math.max(13.5, tz - 4), z));
+
+  // pass 2: columns — grass, dirt, then rock tapering to a rough point underneath
+  const grass = (x, z) => { const n = noise(x * 0.21 + 11.3, z * 0.21 + 5.9) + (hash(x, 2, z) - 0.5) * 0.3; return PAL.grass[n < 0.42 ? 0 : n < 0.62 ? 1 : 2]; };
+  let minY = 0, lowest = [0, 0, 0];
+  for (let x = -27; x <= 27; x++) for (let z = -27; z <= 27; z++) {
+    if (!inside[CI(x, z)]) continue;
+    const d = Math.hypot(x, z), a = Math.atan2(x, z), rim = rimR(a);
+    const onPath = z > 8 && Math.abs(x - pathX(z)) <= 2, sd = streamDist(x, z);
+    let level = smooth(13.5, 17, d) * smooth(1.25, 2.2, pondField(x, z)) * smooth(1.5, 3.5, sd);   // 0 = keep flat
+    if (z > 8) level *= smooth(3.5, 6.5, Math.abs(x - pathX(z)));
+    let top = Math.round(clamp((noise(x * 0.085 + 3.1, z * 0.085 + 8.7) - 0.5) * 7.5, 0, 2.3) * level);
+    if (d > rim - 1.4) top = (!onPath && sd > 1.6 && hash(x, 7, z) < 0.3) ? -1 : 0;                 // chipped rim
+    const q = clamp(Math.hypot(x - tipX, z - tipZ) / (rim + 0.5), 0, 1);
+    // a chunky lip at the rim, a bowl under it, and a spike toward the off-centre tip
+    let th = 3.2 + 8.5 * Math.pow(1 - q, 0.9) + 9 * Math.pow(1 - q, 3.5) + (noise(x * 0.17 + 50.3, z * 0.17 + 90.7) - 0.5) * 5 * Math.sqrt(1 - q);
+    th += (hash(x, 4, z) - 0.5) * 3.4 * (0.35 + 0.65 * (1 - q));                                     // broken, craggy underside
+    if (hash(x, 3, z) < 0.08 && q < 0.94) th += 2 + hash(x, 5, z) * 3.5;                             // stalactites
+    const bottom = top - clamp(Math.round(th), 2, 23), dirtDepth = 1 + (hash(x, 1, z) < 0.5 ? 1 : 0);
+    botY[CI(x, z)] = bottom;
+    for (let y = top; y >= bottom; y--) {
+      const dy = top - y;
+      const c = dy === 0 ? grass(x, z)
+        : dy <= dirtDepth ? PAL.dirt[(hash(x, y, z) * 3) | 0]
+        : PAL.rock[(clamp(dy / 15 + (hash(x, y, z) - 0.5) * 0.55, 0, 0.999) * 4) | 0];
+      set(x, y, z, c, T.TERRAIN);
+    }
+    topY[CI(x, z)] = top; surf[CI(x, z)] = 1;
+    if (bottom < minY) { minY = bottom; lowest = [x, bottom, z]; }
+  }
+
+  // ── pond: carve a bed that deepens toward the middle, lay one layer of water voxels on top ─────────────
+  for (let x = -24; x <= 24; x++) for (let z = -24; z <= 24; z++) {
+    if (!inIsland(x, z) || topY[CI(x, z)] !== 0) continue;
+    if (x * side <= 3 || Math.max(Math.abs(x), Math.abs(z)) <= 10 || Math.hypot(x, z) > rimR(Math.atan2(x, z)) - 2.4) continue;
+    const f = pondField(x, z);
+    if (f >= 1) continue;
+    const bed = -1 - (f < 0.35 ? 2 : f < 0.78 ? 1 : 0);
+    pond.cells.push({ x, z, f, bed }); pond.set.add(CI(x, z)); pond.bed.set(CI(x, z), bed);
+  }
+  const isPond = (x, z) => Math.abs(x) <= GX && Math.abs(z) <= GX && pond.set.has(CI(x, z));
+  const wet = (x, z, bed, bedColor, waterColor) => {
+    for (let y = topY[CI(x, z)]; y > bed; y--) del(x, y, z);
+    set(x, bed, z, bedColor, T.TERRAIN);
+    for (let y = bed - 1; y >= bed - 2; y--) put(x, y, z, PAL.rock[2], T.TERRAIN);                   // never leave a hole under the water
+    set(x, 0, z, waterColor, T.WATER);
+    topY[CI(x, z)] = bed; surf[CI(x, z)] = 3;
+  };
+  for (const c of pond.cells) {
+    const t = clamp(1 - c.f, 0, 1);
+    wet(c.x, c.z, c.bed, mixHex(PAL.sand, PAL.pondDeep, clamp(t * 1.3, 0, 1)), mixHex(PAL.waterShallow, PAL.waterDeep, smooth(0.05, 0.85, t)));
+  }
+  for (const c of pond.cells) for (const [dx, dz] of N4) {                                          // damp stone banks under the waterline
+    const nx = c.x + dx, nz = c.z + dz;
+    if (isPond(nx, nz)) continue;
+    for (let y = -1; y >= c.bed; y--) if (get(nx, y, nz) === T.TERRAIN) col[I(nx, y, nz)] = PAL.bank[hash(nx, y, nz) < 0.5 ? 0 : 1];
+  }
+
+  // outlet stream → waterfall over the rim (two lanes wide)
+  const falls = [];
+  for (const lane of [-0.5, 0.5]) {
+    let started = false;
+    for (let s = 0; s < 18; s += 0.5) {
+      const x = Math.round(pcx + sux * s - suz * lane), z = Math.round(pcz + suz * s + sux * lane);
+      if (surfAt(x, z) === 3) { started = true; continue; }
+      if (!started) continue;
+      if (inIsland(x, z)) { wet(x, z, -1, PAL.pebble, mixHex(PAL.waterShallow, 0xffffff, 0.18)); continue; }
+      if (!falls.some(f => f.x === x && f.z === z)) falls.push({ x, z, len: RI(12, 17) });
+      break;
+    }
+  }
+
+  // ── stone path: pagoda steps → torii → rim, plus scattered stones ──────────
+  const pave = (x, z) => { if (!isLawn(x, z)) return; set(x, topY[CI(x, z)], z, PAL.stone[(hash(x, 12, z) * 3) | 0], T.PATH); surf[CI(x, z)] = 2; };
+  for (let z = 11; z <= 30; z++) {
+    const cx = pathX(z);
+    if (!inIsland(cx, z)) break;
+    for (let w = -1; w <= 1; w++) if (w === 0 || hash(cx + w, 11, z) > 0.14) pave(cx + w, z);
+  }
+  for (let n = 0; n < 30; n++) { const x = RI(-20, 20), z = RI(-20, 20); if (Math.hypot(x, z) > 11.5) pave(x, z); }
+
+  // ── pagoda: stone terrace, five shrinking storeys, flared roofs, gilt finial ─────────────────────────
+  const slab = (h, y, colorOf, t) => { for (let u = -h; u <= h; u++) for (let v = -h; v <= h; v++) set(u, y, v, colorOf(u, v, Math.max(Math.abs(u), Math.abs(v))), t); };
+  slab(9, 1, (u, v, m) => (m === 9 ? PAL.baseEdge : PAL.base[hash(u, 1, v) < 0.5 ? 0 : 1]), T.PAGODA);
+  slab(8, 2, (u, v, m) => (m === 8 ? PAL.base[1] : PAL.base[hash(u, 2, v) < 0.6 ? 0 : 1]), T.PAGODA);
+  for (let u = -9; u <= 9; u++) for (let v = -9; v <= 9; v++) surf[CI(u, v)] = 4;
+  for (let x = -2; x <= 2; x++) { set(x, 1, 10, PAL.base[1], T.PAGODA); set(x, 2, 9, PAL.base[0], T.PAGODA); surf[CI(x, 10)] = 4; }   // two steps
+
+  const WIN = { 6: [-2, -1, 1, 2], 5: [0], 4: [0], 3: [-1, 1], 2: [0] };                            // lit bays per storey width
+  const halfW = [6, 5, 4, 3, 2], bodyH = [4, 3, 3, 3, 3];
+  const roofColor = (u, y, v) => PAL.roof[hash(u, y, v) < 0.5 ? 0 : 1];
+  const roof = (w, y, rail) => {                     // eave slab with up-turned corners, then a narrower slab above it
+    const e = w + 3;
+    for (let u = -e; u <= e; u++) for (let v = -e; v <= e; v++) {
+      const au = Math.abs(u), av = Math.abs(v);
+      const lift = au === e && av === e ? 2 : au >= e - 1 && av >= e - 1 ? 1 : 0;
+      set(u, y + lift, v, Math.max(au, av) === e ? PAL.roofEdge : roofColor(u, y, v), T.PAGODA);
+    }
+    for (const sx of [-e, e]) for (const sz of [-e, e]) set(sx, y + 1, sz, PAL.gold, T.PAGODA);     // wind bells under the tips
+    // the upper slab is edged in vermilion where a storey stands on it: the balcony rail, and the pagoda's red trim line
+    slab(w + 1, y + 1, (u, v, m) => (rail && m === w + 1 ? PAL.red : roofColor(u, y + 1, v)), T.PAGODA);
+  };
+  let py = 3;
+  for (let i = 0; i < 5; i++) {
+    const w = halfW[i], h = bodyH[i];
+    for (let dy = 0; dy < h; dy++) for (let u = -w; u <= w; u++) for (let v = -w; v <= w; v++) {
+      const au = Math.abs(u), av = Math.abs(v), y = py + dy;
+      if (au < w && av < w) { set(u, y, v, PAL.timber[0], T.PAGODA); continue; }                    // solid core, culled later
+      const s = au === w ? v : u, post = (au === w && av === w) || (w - Math.abs(s)) % 3 === 0;
+      let c = dy === h - 1 ? PAL.red                                                                // red band under the eave
+        : post ? PAL.timber[hash(u, y, v) < 0.7 ? 0 : 1] : PAL.plaster[hash(u, y, v) < 0.6 ? 0 : 1];  // black posts, white plaster bays
+      let t = T.PAGODA;
+      if (i === 0 && v === w && au <= 1 && dy <= 2) c = PAL.door;                                    // doors face the gate
+      else if (!post && dy >= 1 && dy <= h - 2 && WIN[w].includes(s)) { c = PAL.glow[hash(u, y, v) < 0.5 ? 0 : 1]; t = T.GLOW; }
+      set(u, y, v, c, t);
+    }
+    py += h;
+    if (i < 4) { roof(w, py, true); py += 2; }
+  }
+  roof(2, py, false);                                // crown: eave, small pyramid, then the finial with its rings
+  slab(2, py + 2, (u, v) => roofColor(u, py + 2, v), T.PAGODA);
+  slab(1, py + 3, (u, v) => roofColor(u, py + 3, v), T.PAGODA);
+  set(0, py + 4, 0, PAL.timber[0], T.PAGODA);
+  for (let k = 5; k <= 9; k++) set(0, py + k, 0, PAL.gold, T.PAGODA);
+  for (const k of [6, 8]) for (const [dx, dz] of N4) set(dx, py + k, dz, PAL.gold, T.PAGODA);
+  set(0, py + 10, 0, PAL.goldHi, T.PAGODA);
+  const pagoda = { x: 0, z: 0, half: 9, top: py + 10 };
+
+  // ── torii on the path at the southern rim ─────────────────────────────────
+  for (const sx of [-3, 3]) {
+    const g = Math.max(0, topY[CI(tx + sx, tz)]);
+    set(tx + sx, g + 1, tz, PAL.toriiBlack, T.TORII);
+    for (let y = g + 2; y <= 8; y++) set(tx + sx, y, tz, PAL.toriiRed[hash(sx, y, tz) < 0.6 ? 0 : 1], T.TORII);
+    surf[CI(tx + sx, tz)] = 4;
+  }
+  for (let u = -4; u <= 4; u++) { set(tx + u, 6, tz, PAL.toriiRed[0], T.TORII); set(tx + u, 8, tz, PAL.toriiRed[1], T.TORII); }
+  set(tx, 7, tz, PAL.gold, T.TORII);
+  for (let u = -5; u <= 5; u++) set(tx + u, 9, tz, PAL.toriiBlack, T.TORII);
+  set(tx - 5, 10, tz, PAL.toriiBlack, T.TORII); set(tx + 5, 10, tz, PAL.toriiBlack, T.TORII);
+  const torii = { x: tx, z: tz, top: 10 };
+  for (const sg of [-1, 1]) for (let k = 4; k <= 11; k++) {                                         // low shrine fence either side of the gate
+    const x = tx + sg * k;
+    if (!isLawn(x, tz) || topY[CI(x, tz)] !== 0) break;
+    set(x, 1, tz, k % 3 === 1 ? PAL.toriiBlack : PAL.toriiRed[1], T.PROP);
+    if (k % 3 === 1) set(x, 2, tz, PAL.toriiBlack, T.PROP);
+    surf[CI(x, tz)] = 4;
+  }
+
+  // ── stone lanterns (their fire boxes are GLOW voxels, lit at night) ────────
+  const lanterns = [];
+  const lantern = (x, z) => {
+    if (!isLawn(x, z) || topY[CI(x, z)] !== 0) return;
+    set(x, 1, z, PAL.lantern[1], T.PROP); set(x, 2, z, PAL.lantern[0], T.PROP);
+    set(x, 3, z, PAL.glow[0], T.GLOW);
+    for (let u = -1; u <= 1; u++) for (let v = -1; v <= 1; v++) set(x + u, 4, z + v, PAL.lantern[u || v ? 1 : 0], T.PROP);
+    set(x, 5, z, PAL.lantern[0], T.PROP);
+    surf[CI(x, z)] = 4; lanterns.push({ x, y: 3, z });
+  };
+  lantern(-4, 12); lantern(4, 12);
+  { const lz = tz - 4, lx = pathX(lz); lantern(lx - 3, lz); lantern(lx + 3, lz); }
+
+  // ── bridge: arched plank deck across the pond's heart, along whichever axis is the shorter crossing ──
+  let bridge = null;
+  if (pond.cells.length) {
+    const middle = pond.cells.reduce((a, b) => (b.f < a.f ? b : a));
+    const cross = (o, dx, dz) => {
+      let a = 0, b = 0;
+      while (isPond(o.x + dx * (a - 1), o.z + dz * (a - 1))) a--;
+      while (isPond(o.x + dx * (b + 1), o.z + dz * (b + 1))) b++;
+      a--; b++;                                      // step out onto both banks
+      const ok = [a, b].every(k => isLawn(o.x + dx * k, o.z + dz * k));
+      return { o, dx, dz, a, b, len: b - a + 1, cost: Math.abs(b - a + 1 - 8) + Math.hypot(o.x - middle.x, o.z - middle.z) * 0.3 + (ok ? 0 : 50) };
+    };
+    let br = null;                                   // a crossing about eight planks long near the middle — a short bridge, as specified
+    for (const c of pond.cells) if (c.f < 0.7) for (const [dx, dz] of [[1, 0], [0, 1]]) { const k = cross(c, dx, dz); if (k.len >= 6 && (!br || k.cost < br.cost)) br = k; }
+    if (!br) br = cross(middle, 1, 0);
+    const heart = br.o, L = br.len;
+    let deckTop = 1;
+    for (let i = 0; i < L; i++) {
+      const k = br.a + i, y = 1 + Math.round(Math.sin(Math.PI * i / (L - 1)) * (L >= 8 ? 2 : 1) * 0.99);
+      deckTop = Math.max(deckTop, y);
+      for (let w = -1; w <= 1; w++) {
+        const x = heart.x + br.dx * k + br.dz * w, z = heart.z + br.dz * k + br.dx * w;
+        set(x, y, z, PAL.plank[i % 2], T.BRIDGE);
+        // slim posts on alternate planks instead of a solid rail, red caps at the four ends
+        if (w !== 0 && (i % 2 === 0 || i === L - 1)) set(x, y + 1, z, i === 0 || i === L - 1 ? PAL.cap : PAL.post, T.BRIDGE);
+        if (isLawn(x, z)) surf[CI(x, z)] = 4;
+      }
+    }
+    const end = k => [heart.x + br.dx * k, heart.z + br.dz * k];
+    bridge = { x: heart.x, z: heart.z, dx: br.dx, dz: br.dz, a: br.a, b: br.b, top: deckTop, ends: [end(br.a), end(br.b)] };
+    // stepping stones from the nearer end of the bridge round the terrace to the steps
+    const near = p => Math.hypot(p[0] - side * 2, p[1] - 11);
+    const [ex, ez] = near(bridge.ends[0]) < near(bridge.ends[1]) ? bridge.ends[0] : bridge.ends[1];
+    const way = [[ex, ez], [side * 10, ez], [side * 10, 11], [side * 2, 11]];
+    for (let s = 0, n = 0; s < way.length - 1; s++) {
+      let [x, z] = way[s];
+      const [x1, z1] = way[s + 1];
+      while (x !== x1 || z !== z1) { x += Math.sign(x1 - x); z += Math.sign(z1 - z); if (n++ % 2 === 0) pave(x, z); }
+    }
+  }
+
+  // ── spring: a mossy outcrop at the head of the pond, water stepping down the rocks into it ──────────
+  if (pond.cells.length) {
+    const ma = pond.a + Math.sign(pond.a) * 1.2 * pond.at / pond.r, mx = Math.round(pond.r * Math.sin(ma)), mz = Math.round(pond.r * Math.cos(ma));
+    for (let u = -4; u <= 4; u++) for (let v = -4; v <= 4; v++) {
+      const x = mx + u, z = mz + v, dd = Math.hypot(u / 3.4, v / 2.9);
+      if (dd >= 1 || !isLawn(x, z)) continue;
+      const n = Math.round(3.7 * Math.pow(1 - dd * dd, 0.7) + hash(x, 90, z) * 0.9), g = topY[CI(x, z)];
+      for (let k = 1; k <= n; k++) set(x, g + k, z, k === n && hash(x, 91, z) < 0.45 ? PAL.moss[hash(x, 92, z) < 0.5 ? 0 : 1] : PAL.rock[(hash(x, k, z) * 3) | 0], T.PROP);
+      if (n > 0) surf[CI(x, z)] = 4;
+    }
+    let x = mx, z = mz, wy = 9;                      // walk from the summit toward the pond's heart, never climbing
+    for (let i = 0; i < 14 && !isPond(x, z) && inIsland(x, z); i++) {
+      const g = topY[CI(x, z)];
+      let h = 0;
+      while (get(x, g + h + 1, z) === T.PROP) h++;
+      if (h === 0) {                                 // off the rocks: an ordinary stream cell at lawn level
+        if (g !== 0 || surfAt(x, z) === 2) break;
+        wet(x, z, -1, PAL.pebble, mixHex(PAL.waterShallow, 0xffffff, 0.18));
+      } else {
+        wy = Math.min(wy, g + h);
+        for (let k = g + 1; k < wy; k++) set(x, k, z, PAL.rock[1], T.PROP);
+        for (let k = wy + 1; k <= g + 6; k++) if (get(x, k, z) === T.PROP) del(x, k, z);
+        set(x, wy, z, mixHex(PAL.waterShallow, 0xffffff, 0.3), T.WATER);
+      }
+      if (Math.abs(pcx - x) > Math.abs(pcz - z)) x += Math.sign(pcx - x); else z += Math.sign(pcz - z);
+    }
+  }
+
+  // ── cherry trees: a hero by the water, four more spread around the lawn ───
+  const trees = [], greens = [];
+  const pondDist =(x, z) => { let m = 99; for (const c of pond.cells) m = Math.min(m, Math.hypot(c.x - x, c.z - z)); return m; };
+  const treeFits = (x, z, r, crowd) => {
+    if (!isLawn(x, z)) return false;
+    if (Math.max(Math.abs(x), Math.abs(z)) < 8.6 + r || Math.hypot(x, z) > rimR(Math.atan2(x, z)) - 2.2 - r * 0.2) return false;   // clear of the eaves, inside the rim
+    if (Math.hypot(x - tx, z - tz) < r + 4.5) return false;                                         // keep the gate clear
+    if (z > 9 && Math.abs(x - pathX(z)) < 2.5 + r * 0.3) return false;                               // and the approach
+    for (let u = -2; u <= 2; u++) for (let v = -2; v <= 2; v++) { const s = surfAt(x + u, z + v); if (s === 0 || s === 3 || s === 4) return false; }
+    return trees.every(t => Math.hypot(x - t.x, z - t.z) >= (r + t.r) * crowd) && greens.every(t => Math.hypot(x - t.x, z - t.z) >= (r + t.r) * crowd);
+  };
+  const buildTree = (tg, x, z, h, r, tones, list) => {
+    const base = topY[CI(x, z)] + 1, top = base + h - 1, cherry = list === trees;
+    const la = R(0, TAU), lean = R(0.05, 0.22);
+    let cx = x, cz = z;
+    const ex = Math.sin(la) < 0 ? 1 : -1, ez = Math.cos(la) < 0 ? 1 : -1, stout = r > 5.2;
+    for (let k = 0; k < h; k++) {                    // trunk, leaning a little; the big trees get a 2×2 bole
+      cx = x + Math.round(Math.sin(la) * lean * k); cz = z + Math.round(Math.cos(la) * lean * k);
+      set(cx, base + k, cz, PAL.trunk[hash(cx, k, cz) < 0.55 ? 0 : 1], tg);
+      if (stout && k < h - 2) for (const [u, v] of [[ex, 0], [0, ez], [ex, ez]]) set(cx + u, base + k, cz + v, PAL.trunk[hash(cx + u, k, cz + v) < 0.55 ? 0 : 1], tg);
+    }
+    if (!stout && r > 3.8) { put(x + ex, base, z, PAL.trunk[1], tg); put(x, base, z + ez, PAL.trunk[0], tg); }   // root flare
+    for (let u = -1; u <= 1; u++) for (let v = -1; v <= 1; v++) if (get(x + u, base, z + v) === tg) surf[CI(x + u, z + v)] = 4;
+    // the crown is a cluster of puffs — one over the trunk, one at the end of every bough, one on top — rather than
+    // a single ball, which gives the lumpy silhouette of a cherry in full bloom
+    const blobs = [{ x: cx, y: top + r * 0.3, z: cz, rx: r * 0.74, ry: r * 0.52, rz: r * 0.74 }];
+    const nb = r > 5.6 ? 7 : r > 4.4 ? 6 : r > 3.5 ? 5 : 4, b0 = R(0, TAU);
+    for (let b = 0; b < nb; b++) {
+      const ba = b0 + b * TAU / nb + R(-0.3, 0.3), bl = Math.max(2, Math.round(r * R(0.5, 0.66)));
+      let bx = cx, by = top - 1 - (b % 2), bz = cz;
+      for (let k = 1; k <= bl; k++) {
+        bx = cx + Math.round(Math.sin(ba) * k); bz = cz + Math.round(Math.cos(ba) * k); by += k % 2;
+        set(bx, by, bz, PAL.trunk[1], tg);
+      }
+      blobs.push({ x: bx, y: by + r * R(0.04, 0.3), z: bz, rx: r * R(0.44, 0.56), ry: r * R(0.34, 0.44), rz: r * R(0.44, 0.56) });
+    }
+    blobs.push({ x: cx + R(-1, 1), y: top + r * 0.62, z: cz + R(-1, 1), rx: r * 0.46, ry: r * 0.36, rz: r * 0.46 });
+    for (let n = Math.round(r * 1.4); n > 0; n--) {  // and a scatter of small puffs to break up the outline
+      const a = R(0, TAU), d = r * R(0.45, 0.8), s = r * R(0.26, 0.36);
+      blobs.push({ x: cx + Math.sin(a) * d, y: top + r * R(0, 0.55), z: cz + Math.cos(a) * d, rx: s, ry: s * 0.85, rz: s });
+    }
+    const floorY = base + Math.max(2, h - 3);
+    let lo = 99, hi = -99;
+    for (const B of blobs) {
+      for (let yy = Math.max(floorY, Math.floor(B.y - B.ry - 1)); yy <= Math.ceil(B.y + B.ry); yy++)
+        for (let xx = Math.floor(B.x - B.rx - 1); xx <= Math.ceil(B.x + B.rx + 1); xx++)
+          for (let zz = Math.floor(B.z - B.rz - 1); zz <= Math.ceil(B.z + B.rz + 1); zz++) {
+            const dd = ((xx - B.x) / B.rx) ** 2 + ((yy - B.y) / B.ry) ** 2 + ((zz - B.z) / B.rz) ** 2;
+            if (dd > 1 + (hash(xx, yy, zz) - 0.5) * 0.42) continue;                                   // ragged outline
+            if (dd > 0.55 && hash(xx, yy + 31, zz) < 0.12) continue;                                  // airy gaps near the surface
+            if (get(xx, yy, zz) !== 0) continue;                                                      // never eat wood or neighbours
+            const tone = (yy - B.y) / B.ry * 0.5 + 0.5 + (hash(xx, yy + 57, zz) - 0.5) * 0.7;        // paler toward the light
+            set(xx, yy, zz, tones[tone > 0.74 ? 3 : tone > 0.46 ? 2 : tone > 0.2 ? 1 : 0], tg);
+            if (yy < lo) lo = yy; if (yy > hi) hi = yy;
+          }
+    }
+    list.push({ x, z, r, h, base, cx, cz, cy: (Math.min(lo, hi) + hi) / 2, top: hi, tag: tg });
+    if (!cherry) return;
+    for (let n = Math.round(r * 5); n > 0; n--) {    // a few drooping sprays under the edge of the crown
+      const a = R(0, TAU), rr = r * R(0.7, 1.0), xx = Math.round(cx + Math.sin(a) * rr), zz = Math.round(cz + Math.cos(a) * rr);
+      for (let yy = hi; yy >= floorY; yy--) if (get(xx, yy, zz) === tg && get(xx, yy - 1, zz) === 0) {
+        set(xx, yy - 1, zz, PAL.blossom[0], tg);
+        if (chance(0.5)) put(xx, yy - 2, zz, PAL.blossom[1], tg);
+        break;
+      }
+    }
+    for (let u = -Math.ceil(r) - 1; u <= Math.ceil(r) + 1; u++) for (let v = -Math.ceil(r) - 1; v <= Math.ceil(r) + 1; v++) {   // fallen petals on the grass
+      const xx = cx + u, zz = cz + v, dd = Math.hypot(u, v) / (r + 1.5);
+      if (dd < 1 && isLawn(xx, zz) && hash(xx, 21, zz) < 0.5 * (1 - dd)) col[I(xx, topY[CI(xx, zz)], zz)] = PAL.fallen[hash(xx, 22, zz) < 0.5 ? 0 : 1];
+    }
+  };
+  const sizes = [[RI(7, 9), R(6.0, 6.6)], [RI(6, 8), R(5.0, 5.6)], [RI(6, 7), R(4.6, 5.2)], [RI(5, 6), R(4.0, 4.5)], [RI(5, 6), R(3.6, 4.1)]];
+  sizes.forEach(([h, r0], i) => {
+    let best = null;
+    for (let attempt = 0; attempt < 8 && !best; attempt++) {                                        // relax spacing first, then size, until it fits
+      const r = attempt < 4 ? r0 : Math.max(2.5, r0 * (1 - (attempt - 3) * 0.13)), crowd = [0.92, 0.8, 0.68, 0.56, 0.56, 0.5, 0.45, 0.4][attempt];
+      for (let n = 0; n < 220; n++) {
+        const x = RI(-21, 21), z = RI(-21, 21);
+        if (!treeFits(x, z, r, crowd)) continue;
+        const score = i === 0 ? rng() * 0.5 - Math.abs(pondDist(x, z) - 4.5)                          // hero: lean over the pond
+          : trees.reduce((m, t) => Math.min(m, Math.hypot(x - t.x, z - t.z)), 40) + rng() * 4;        // others: farthest-point spread
+        if (!best || score > best.score) best = { x, z, r, score };
+      }
+    }
+    if (best) buildTree(T.TREE + i, best.x, best.z, i === 0 ? h : Math.max(4, Math.min(h, Math.round(best.r * 1.5))), best.r, PAL.blossom, trees);
+  });
+  for (let m = 0; m < 2; m++) {                      // two small maples for contrast: one in red spring leaf, one fresh green
+    const r = R(2.8, 3.4);
+    let best = null;
+    for (let n = 0; n < 160; n++) {
+      const x = RI(-21, 21), z = RI(-21, 21);
+      if (!treeFits(x, z, r, 0.9)) continue;
+      const score = [...trees, ...greens].reduce((s, t) => Math.min(s, Math.hypot(x - t.x, z - t.z)), 40) + rng() * 4;
+      if (!best || score > best.score) best = { x, z, score };
+    }
+    if (best) buildTree(T.PLANT, best.x, best.z, RI(3, 4), r, PAL.maple[m], greens);
+  }
+
+  // ── garden dressing: shrubs, shore rocks and reeds, two pines, a bamboo stand, vines over the rim ────
+  const nearTree = (x, z, pad) => [...trees, ...greens].some(t => Math.hypot(x - t.cx, z - t.cz) < t.r * 0.85 + pad);
+  const lawnSpot = (minD, clear, ok) => {            // a random patch of free lawn, or null
+    for (let n = 0; n < 80; n++) {
+      const x = RI(-21, 21), z = RI(-21, 21);
+      if (Math.hypot(x, z) < minD) continue;
+      let free = true;
+      for (let u = -clear; u <= clear && free; u++) for (let v = -clear; v <= clear; v++) if (!isLawn(x + u, z + v)) { free = false; break; }
+      if (free && (!ok || ok(x, z))) return [x, z];
+    }
+    return null;
+  };
+  for (let n = RI(16, 20); n > 0; n--) {
+    const s = lawnSpot(11.5, 1);
+    if (!s) continue;
+    const [x, z] = s, y = topY[CI(x, z)] + 1, wide = chance(0.5);
+    const cells = wide ? [[0, 0], [1, 0], [0, 1], [1, 1]] : chance(0.5) ? [[0, 0], [1, 0]] : [[0, 0], [0, 1]];
+    const flower = chance(0.55) ? PAL.azalea[chance(0.7) ? 0 : 1] : 0;
+    for (const [u, v] of cells) {
+      if (topY[CI(x + u, z + v)] + 1 !== y) continue;
+      set(x + u, y, z + v, flower && hash(x + u, 40, z + v) < 0.35 ? flower : PAL.bush[(hash(x + u, 41, z + v) * 3) | 0], T.PLANT);
+      surf[CI(x + u, z + v)] = 4;
+    }
+    if (wide) set(x + RI(0, 1), y + 1, z + RI(0, 1), flower || PAL.bush[1], T.PLANT);
+  }
+  const shore = [];
+  for (const c of pond.cells) for (const [dx, dz] of N4) if (isLawn(c.x + dx, c.z + dz)) shore.push([c.x + dx, c.z + dz]);
+  if (bridge) {                                      // a lantern at the far end of the bridge
+    const far = bridge.ends.find(e => !lanterns.length || Math.hypot(e[0], e[1]) > 13) || bridge.ends[1];
+    const s = shore.find(([x, z]) => { const d = Math.hypot(x - far[0], z - far[1]); return d > 2.2 && d < 5 && isLawn(x, z); });
+    if (s) lantern(s[0], s[1]);
+  }
+  for (let n = Math.min(shore.length, RI(7, 10)); n > 0; n--) {
+    const [x, z] = shore[RI(0, shore.length - 1)];
+    if (!isLawn(x, z)) continue;
+    const y = topY[CI(x, z)] + 1;
+    set(x, y, z, PAL.rock[RI(0, 2)], T.PROP); surf[CI(x, z)] = 4;
+    if (chance(0.4)) set(x, y + 1, z, PAL.rock[RI(0, 1)], T.PROP);
+  }
+  for (let n = Math.min(shore.length, RI(4, 6)); n > 0; n--) {
+    const [x, z] = shore[RI(0, shore.length - 1)];
+    if (!isLawn(x, z)) continue;
+    const hgt = RI(2, 3), y = topY[CI(x, z)];
+    for (let k = 1; k <= hgt; k++) set(x, y + k, z, k === hgt ? PAL.reedTip : PAL.reed, T.PLANT);
+    surf[CI(x, z)] = 4;
+  }
+  const pine = (x, z) => {                           // cloud-pruned pine: kinked trunk, two flat pads of needles
+    const base = topY[CI(x, z)] + 1, h = RI(4, 5), a = R(0, TAU), ox = Math.round(Math.sin(a)), oz = Math.round(Math.cos(a));
+    let qx = x, qz = z;
+    for (let k = 0; k < h; k++) { if (k === 2) { qx += ox; qz += oz; } set(qx, base + k, qz, PAL.pineTrunk, T.PLANT); }
+    const pad = (cx, cy, cz, rad) => {
+      for (let u = -3; u <= 3; u++) for (let v = -3; v <= 3; v++) {
+        const d = Math.hypot(u, v);
+        if (d <= rad) put(cx + u, cy, cz + v, PAL.pine[hash(cx + u, cy, cz + v) < 0.5 ? 0 : 1], T.PLANT);
+        if (d <= rad - 1.1) put(cx + u, cy + 1, cz + v, PAL.pine[0], T.PLANT);
+      }
+    };
+    pad(qx, base + h, qz, 2.3);
+    put(x, base + h - 2, z, PAL.pineTrunk, T.PLANT);
+    pad(x - ox * 2, base + h - 2, z - oz * 2, 1.7);
+    surf[CI(x, z)] = 4;
+  };
+  for (let n = 0; n < 2; n++) {
+    const s = lawnSpot(12.5, 2, (x, z) => !nearTree(x, z, 3.2) && (n > 0 || Math.hypot(x - tx, z - tz) < 9));
+    if (s) pine(s[0], s[1]);
+  }
+  for (let n = 0, grown = 0; n < 260 && grown < 64; n++) {                                          // bamboo grove along the northern rim, behind the pagoda
+    const a = Math.PI - side * 0.3 + R(-0.85, 0.85), d = rimR(a) - R(1.6, 6.2), x = Math.round(Math.sin(a) * d), z = Math.round(Math.cos(a) * d);
+    if (!isLawn(x, z) || nearTree(x, z, 4) || N4.some(([dx, dz]) => get(x + dx, topY[CI(x, z)] + 2, z + dz) === T.PLANT && chance(0.7))) continue;
+    const base = topY[CI(x, z)] + 1, hgt = RI(6, 11);
+    for (let k = 0; k < hgt; k++) set(x, base + k, z, k % 3 === 2 ? PAL.bambooNode : PAL.bamboo[n % 2], T.PLANT);
+    for (let k = hgt - 3; k < hgt; k++) { const [dx, dz] = N4[RI(0, 3)]; put(x + dx, base + k, z + dz, PAL.bambooLeaf, T.PLANT); }
+    surf[CI(x, z)] = 4; grown++;
+  }
+  for (let n = RI(10, 14), tries = 0; n > 0 && tries < 200; tries++) {                              // boulders along the rim
+    const a = R(0, TAU), d = rimR(a) - R(0.8, 2.2), x = Math.round(Math.sin(a) * d), z = Math.round(Math.cos(a) * d);
+    if (!isLawn(x, z) || Math.hypot(x - tx, z - tz) < 7) continue;
+    set(x, topY[CI(x, z)] + 1, z, PAL.rock[RI(0, 2)], T.PROP); surf[CI(x, z)] = 4;
+    if (chance(0.35)) set(x, topY[CI(x, z)] + 2, z, PAL.rock[RI(1, 2)], T.PROP);
+    const [dx, dz] = N4[RI(0, 3)];
+    if (chance(0.5) && isLawn(x + dx, z + dz)) { set(x + dx, topY[CI(x + dx, z + dz)] + 1, z + dz, PAL.rock[RI(0, 2)], T.PROP); surf[CI(x + dx, z + dz)] = 4; }
+    n--;
+  }
+  for (let n = 0; n < 46; n++) {                     // tufts of long grass and fern
+    const s = lawnSpot(12, 0);
+    if (s) { set(s[0], topY[CI(s[0], s[1])] + 1, s[1], PAL.bush[chance(0.5) ? 1 : 2], T.PLANT); surf[CI(s[0], s[1])] = 4; }
+  }
+  for (let n = RI(7, 10), tries = 0; n > 0 && tries < 120; tries++) {                               // shards that have broken away beneath
+    const a = R(0, TAU), d = R(6, 19), x = Math.round(Math.sin(a) * d), z = Math.round(Math.cos(a) * d);
+    if (!inIsland(x, z)) continue;
+    const y0 = botY[CI(x, z)] - RI(3, 6), len = RI(2, 5);
+    if (y0 - len < minY + 1) continue;
+    for (let k = 0; k < len; k++) {
+      put(x, y0 - k, z, PAL.rock[2 + (k & 1)], T.TERRAIN);
+      if (k < len - 1 && chance(0.6)) put(x + RI(-1, 1), y0 - k, z + RI(-1, 1), PAL.rock[3], T.TERRAIN);
+    }
+    n--;
+  }
+  for (let x = -27; x <= 27; x++) for (let z = -27; z <= 27; z++) {
+    if (!inIsland(x, z) || surfAt(x, z) === 3) continue;
+    for (const [dx, dz] of N4) {
+      const nx = x + dx, nz = z + dz;
+      if (inIsland(nx, nz) || hash(nx, 60, nz) > 0.3 || falls.some(f => Math.abs(f.x - nx) < 2 && Math.abs(f.z - nz) < 2)) continue;
+      const len = 1 + Math.floor(hash(nx, 61, nz) * 4.6);
+      for (let k = 0; k < len; k++) put(nx, topY[CI(x, z)] - k, nz, PAL.vine[hash(nx, k, nz) < 0.5 ? 0 : 1], T.TERRAIN);
+    }
+  }
+
+  // ── a few satellite rocks drifting below the rim (kept under y = 0 so they never block a view) ──────
+  const islets = [];
+  for (let want = RI(5, 6), tries = 0; islets.length < want && tries < 120; tries++) {
+    const a = R(0, TAU), d = R(27, 31.5), rad = islets.length < 2 ? R(4.0, 5.2) : R(2.2, 3.6), y0 = RI(-11, -5);   // never lower than the main tip
+    const ix = Math.round(Math.sin(a) * d), iz = Math.round(Math.cos(a) * d);
+    // not under the waterfall, and not in the sector the overview looks from — a rock in the foreground would push the opening shot back
+    if (Math.abs(angDiff(a, pond.a)) < 0.5 || Math.abs(angDiff(a, side * 0.5)) < 1.0 || islets.some(o => Math.hypot(o.x - ix, o.z - iz) < 9 + o.r)) continue;
+    for (let u = -7; u <= 7; u++) for (let v = -7; v <= 7; v++) {
+      const dd = Math.hypot(u, v) + (noise((ix + u) * 0.7 + 9.1, (iz + v) * 0.7 + 4.3) - 0.5) * 1.5;
+      if (dd > rad) continue;
+      const depth = 1 + Math.round((1 - dd / rad) * rad * 1.8 + hash(ix + u, 70, iz + v) * 1.3);
+      for (let k = 0; k <= depth; k++) set(ix + u, y0 - k, iz + v, k === 0 ? grass(ix + u, iz + v) : k === 1 ? PAL.dirt[1] : PAL.rock[Math.min(3, 1 + (k >> 2))], T.ISLET);
+    }
+    if (islets.length === 0) {                       // the first, largest one carries a young cherry of its own
+      for (let k = 1; k <= 3; k++) set(ix, y0 + k, iz, PAL.trunk[0], T.ISLET);
+      for (let u = -3; u <= 3; u++) for (let v = -3; v <= 3; v++) for (let w = -1; w <= 2; w++)
+        if (u * u + v * v + (w - 0.5) * (w - 0.5) * 2.2 <= 6 + hash(ix + u, w, iz + v) * 1.6) put(ix + u, y0 + 4 + w, iz + v, PAL.blossom[1 + ((hash(ix + u, 80 + w, iz + v) * 3) | 0)], T.ISLET);
+    }
+    islets.push({ x: ix, y: y0, z: iz, r: rad });
+  }
+
+  // ── emit: only voxels with an exposed face; bake soft sky occlusion and a little jitter into the colour ─
+  const LIN = new Float32Array(256);                 // sRGB byte → linear float, the space instanceColor expects
+  for (let i = 0; i < 256; i++) { const c = i / 255; LIN[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  const out = { solid: [[], []], glow: [[], []], water: [[], []], cloud: [[], []] };
+  const emit = (o, x, y, z, c, k, gain = 1) => {
+    o[0].push(x, y, z);
+    o[1].push(LIN[clamp(Math.round((c >> 16 & 255) * k), 0, 255)] * gain, LIN[clamp(Math.round((c >> 8 & 255) * k), 0, 255)] * gain, LIN[clamp(Math.round((c & 255) * k), 0, 255)] * gain);
+  };
+  // The plaster bays sit under deep eaves and would read as grey all day; an over-unity albedo keeps them white in shade.
+  const plasterGain = c => (c === PAL.plaster[0] || c === PAL.plaster[1] ? 2 : 1);
+  for (let y = GY0; y <= GY1; y++) for (let z = -GX; z <= GX; z++) for (let x = -GX; x <= GX; x++) {
+    const i = I(x, y, z), t = tag[i];
+    if (t === 0) continue;
+    if (t === T.WATER) { emit(out.water, x, y, z, col[i], 1); continue; }
+    if (opaque(x + 1, y, z) && opaque(x - 1, y, z) && opaque(x, y + 1, z) && opaque(x, y - 1, z) && opaque(x, y, z + 1) && opaque(x, y, z - 1)) continue;
+    if (t === T.GLOW) { emit(out.glow, x, y, z, col[i], 1); continue; }
+    let occ = 0, cover = 0;
+    for (let u = -1; u <= 1; u++) for (let v = -1; v <= 1; v++) {
+      if (opaque(x + u, y + 1, z + v)) occ += u || v ? 1 : 2;
+      if (opaque(x + u, y + 2, z + v)) occ += 0.5;
+    }
+    for (let k = 3; k <= 7 && !cover; k++) if (opaque(x, y + k, z)) cover = 1;                        // under an eave or a crown
+    emit(out.solid, x, y, z, col[i], (1 - 0.34 * Math.min(1, occ / 9) - 0.07 * cover) * (1 + (hash(x, y, z) - 0.5) * (JITTER[t] || 0.07)), t === T.PAGODA ? plasterGain(col[i]) : 1);
+  }
+
+  // where a falling petal comes to rest: the highest surface at or below y = 3 in each column
+  // (petalRoof is the highest surface of all, so petals coming from above settle on roofs and crowns too)
+  const petalFloor = new Float32Array(SX * SZ).fill(-1e9), petalRoof = new Float32Array(SX * SZ).fill(-1e9);
+  for (let z = -GX; z <= GX; z++) for (let x = -GX; x <= GX; x++) {
+    let roofed = false;
+    for (let y = GY1; y >= GY0; y--) {
+      const t = get(x, y, z);
+      if (t === 0) continue;
+      const s = t === T.WATER ? y + 0.24 : y + 0.5;
+      if (!roofed) { petalRoof[CI(x, z)] = s; roofed = true; }
+      if (y <= 3) { petalFloor[CI(x, z)] = s; break; }
+    }
+  }
+
+  // ── koi circuits: closed loops in pond coordinates, shrunk until every sample is over deep water ────
+  const pondXZ = (u, v) => { const r = pond.r + u * pond.ar, a = pond.a + v * pond.at / pond.r; return [r * Math.sin(a), r * Math.cos(a)]; };
+  const deep = (x, z) => { const cx = Math.round(x), cz = Math.round(z); return isPond(cx, cz) && pond.bed.get(CI(cx, cz)) <= -2 && N4.every(([dx, dz]) => isPond(cx + dx, cz + dz)); };
+  const koi = [];
+  for (let k = 0, nk = RI(2, 3); k < nk && pond.cells.length; k++) {
+    let su = R(0.36, 0.52), sv = R(0.5, 0.76), ou = R(-0.12, 0.12), ov = R(-0.16, 0.16), pts = null;
+    for (let attempt = 0; attempt < 16 && !pts; attempt++) {
+      const p = [];
+      for (let i = 0; i < 120; i++) {
+        const t = i / 120 * TAU, [x, z] = pondXZ(ou + su * Math.sin(k === 1 ? 2 * t : t), ov + sv * Math.cos(t));   // the second fish swims a figure of eight
+        if (!deep(x, z)) break;
+        p.push(x, z);
+      }
+      if (p.length === 240) pts = p; else { su *= 0.84; sv *= 0.84; ou *= 0.6; ov *= 0.6; }
+    }
+    if (!pts) { pts = []; const h = pond.cells.reduce((a, b) => (b.f < a.f ? b : a)); for (let i = 0; i < 120; i++) pts.push(h.x + Math.sin(i / 120 * TAU) * 0.7, h.z + Math.cos(i / 120 * TAU) * 0.7); }
+    koi.push({ pts, dir: chance(0.5) ? 1 : -1, speed: R(0.9, 1.5), phase: rng(), look: k });
+  }
+  const pads = [];
+  for (let n = Math.min(7, pond.cells.length >> 4), guard = 0; n > 0 && guard < 80; guard++) {
+    const c = pond.cells[RI(0, pond.cells.length - 1)];
+    if (c.f < 0.3 || c.f > 0.85 || get(c.x, 1, c.z) || get(c.x, 2, c.z) || get(c.x, 3, c.z) || pads.some(p => Math.abs(p.x - c.x) + Math.abs(p.z - c.z) < 2)) continue;
+    pads.push({ x: c.x, z: c.z, flower: chance(0.4) }); n--;
+  }
+  const flies = [];                                  // firefly homes: by the water, under the trees, over the lawn
+  for (let i = 0; i < FLY_COUNT; i++) {
+    let x = 0, z = 0;
+    for (let tries = 0; tries < 24; tries++) {
+      if (i % 5 < 2 && pond.cells.length) { const c = pond.cells[RI(0, pond.cells.length - 1)]; x = c.x + R(-3.5, 3.5); z = c.z + R(-3.5, 3.5); }
+      else if (i % 5 < 4 && trees.length) { const t = trees[RI(0, trees.length - 1)]; x = t.cx + R(-t.r, t.r) * 1.2; z = t.cz + R(-t.r, t.r) * 1.2; }
+      else { const a = R(0, TAU), d = R(11, 20); x = Math.sin(a) * d; z = Math.cos(a) * d; }
+      if (inIsland(Math.round(x), Math.round(z)) && Math.max(Math.abs(x), Math.abs(z)) > 10.5) break;
+    }
+    flies.push(x, Math.max(0.5, petalFloor[CI(Math.round(x), Math.round(z))]) + R(0.7, 4.2), z);
+  }
+
+  // ── a sea of cloud below the island soaks up whatever is left of the voxel budget ──────────────────
+  // Every puff stays under y = -11: the garden is always above the cloud deck, so no cloud can sit between a
+  // preset camera and its subject. Puffs grow with distance so the deck reads as one layer out to the horizon.
+  const nProps = koi.length * KOI_SEG + pads.length + pads.filter(p => p.flower).length + falls.reduce((s, f) => s + Math.round(f.len * 0.75), 0);
+  let total = (out.solid[0].length + out.glow[0].length + out.water[0].length) / 3 + nProps, puffs = 0;
+  for (let guard = 0; guard < 120 && budget - total > 90 && puffs < 44; guard++) {
+    const remain = budget - total, d = 50 + 105 * Math.pow(rng(), 1.25);
+    const k = (remain > 520 ? R(0.85, 1.15) : clamp(Math.sqrt(remain / 300), 0.36, 0.8)) * (1 + (d - 50) / 190);
+    const a = R(0, TAU), cy = RI(-38, -12), yaw = R(0, Math.PI), ccx = Math.sin(a) * d, ccz = Math.cos(a) * d;
+    const occ = new Set(), key = (x, y, z) => (x + 256) | ((y + 256) << 10) | ((z + 256) << 20);
+    for (let b = 0, nb = RI(3, 5); b < nb; b++) {
+      const o = (b - (nb - 1) / 2) * 3.3 * k + R(-1, 1), bx = ccx + Math.sin(yaw) * o + R(-1.2, 1.2), bz = ccz + Math.cos(yaw) * o + R(-1.2, 1.2);
+      const rx = R(3.2, 5.2) * k, ry = R(1.2, 2.0) * Math.sqrt(k), rz = R(2.4, 3.8) * k, by = cy + R(-0.4, 0.7);
+      for (let x = Math.floor(bx - rx); x <= Math.ceil(bx + rx); x++) for (let z = Math.floor(bz - rx); z <= Math.ceil(bz + rx); z++) for (let y = cy - 1; y <= Math.ceil(by + ry); y++) {
+        const lx = (x - bx) * Math.sin(yaw) + (z - bz) * Math.cos(yaw), lz = (x - bx) * Math.cos(yaw) - (z - bz) * Math.sin(yaw);
+        if ((lx / rx) ** 2 + ((y - by) / ry) ** 2 + (lz / rz) ** 2 <= 1) occ.add(key(x, y, z));
+      }
+    }
+    const cells = [];
+    for (const q of occ) {
+      const x = (q & 1023) - 256, y = ((q >> 10) & 1023) - 256, z = ((q >> 20) & 1023) - 256;
+      if (occ.has(key(x + 1, y, z)) && occ.has(key(x - 1, y, z)) && occ.has(key(x, y + 1, z)) && occ.has(key(x, y - 1, z)) && occ.has(key(x, y, z + 1)) && occ.has(key(x, y, z - 1))) continue;
+      cells.push(x, y, z);
+    }
+    if (cells.length / 3 > remain + 45) continue;    // would overshoot the budget — draw another
+    for (let i = 0; i < cells.length; i += 3) emit(out.cloud, cells[i], cells[i + 1], cells[i + 2], cells[i + 1] <= cy - 1 ? PAL.cloud[2] : PAL.cloud[hash(cells[i], cells[i + 1], cells[i + 2]) < 0.6 ? 0 : 1], 1);
+    total += cells.length / 3; puffs++;
+  }
+
+  // points the overview must keep in frame
+  const fitPts = [[lowest[0], lowest[1] - 0.5, lowest[2]], [0, pagoda.top + 0.8, 0], [tx - 5.5, 10.6, tz], [tx + 5.5, 10.6, tz]];
+  for (let k = 0; k < 24; k++) { const a = k / 24 * TAU, r = rimR(a) + 1.8; fitPts.push([Math.sin(a) * r, 0.6, Math.cos(a) * r], [Math.sin(a) * r * 0.55, minY * 0.7, Math.cos(a) * r * 0.55]); }
+  for (const t of trees) fitPts.push([t.cx, t.top + 0.7, t.cz], [t.cx + t.r + 1, t.cy, t.cz], [t.cx - t.r - 1, t.cy, t.cz], [t.cx, t.cy, t.cz + t.r + 1], [t.cx, t.cy, t.cz - t.r - 1]);
+  for (const o of islets) fitPts.push([o.x + o.r, o.y + 0.6, o.z], [o.x - o.r, o.y + 0.6, o.z], [o.x, o.y + 6, o.z + o.r], [o.x, o.y + 0.6, o.z - o.r], [o.x, o.y - o.r * 1.9 - 2, o.z]);
+
+  const pack = o => ({ n: o[0].length / 3, pos: new Float32Array(o[0]), col: new Float32Array(o[1]) });
+  return {
+    seed, side, minY, count: total, tagAt: get, petalFloor, petalRoof, fitPts,
+    solid: pack(out.solid), glow: pack(out.glow), water: pack(out.water), cloud: pack(out.cloud),
+    pagoda, torii, bridge, trees, lanterns, falls, koi, pads, flies, islets,
+    pond: { a: pond.a, r: pond.r, cells: pond.cells },
+  };
+}
+
+/**
+ * Camera for preset `which` (0 overview · 1 pagoda · 2 pond · 3 torii · 4 blossoms).
+ * Nothing is hard-coded per seed. Each view is framed from the subject's own bounds for the current aspect
+ * ratio (hx, hy = usable fraction of the half-frame), then candidate directions are scored by ray-marching
+ * the voxel grid — so the camera never lands inside a canopy or under an eave, and the subject is not hidden
+ * behind whatever this seed happened to plant in front of it.
+ */
+function solveView(W, which, aspect, hx = 0.86, hy = 0.86, fovDeg = 40) {
+  const tanV = Math.tan(fovDeg * Math.PI / 360), tanH = tanV * aspect;
+  const dirOf = (az, el) => [Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az)];   // unit vector target → camera
+  const at = (tgt, d, dist) => [tgt[0] + d[0] * dist, tgt[1] + d[1] * dist, tgt[2] + d[2] * dist];
+  // Closest distance along d that keeps every point inside the safe frame, with the target re-centred on the points.
+  const frame = (target, d, pts) => {
+    const rl = Math.hypot(d[0], d[2]) || 1, rx = d[2] / rl, rz = -d[0] / rl;                             // camera right
+    const ux = rz * d[1], uy = rx * d[2] - rz * d[0], uz = -rx * d[1];                                   // camera up
+    let tgt = target.slice(), dist = 0;
+    for (let pass = 0; pass < 3; pass++) {
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      dist = 0;
+      for (const p of pts) {
+        const ax = p[0] - tgt[0], ay = p[1] - tgt[1], az = p[2] - tgt[2];
+        const xr = ax * rx + az * rz, yu = ax * ux + ay * uy + az * uz, zf = -(ax * d[0] + ay * d[1] + az * d[2]);
+        dist = Math.max(dist, Math.abs(xr) / (hx * tanH) - zf, Math.abs(yu) / (hy * tanV) - zf);
+        x0 = Math.min(x0, xr); x1 = Math.max(x1, xr); y0 = Math.min(y0, yu); y1 = Math.max(y1, yu);
+      }
+      if (pass < 2) { const sx = (x0 + x1) / 2, sy = (y0 + y1) / 2; tgt = [tgt[0] + rx * sx + ux * sy, tgt[1] + uy * sy, tgt[2] + rz * sx + uz * sy]; }
+    }
+    return [dist, tgt];
+  };
+  const solidAt = (x, y, z) => { const t = W.tagAt(x, y, z); return t !== 0 && t !== T.WATER ? t : 0; };
+  const blocked = (a, b, ignore) => {                // is the segment a → b interrupted by a voxel that is not part of the subject?
+    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], n = Math.ceil(Math.hypot(dx, dy, dz) / 0.45);
+    for (let i = 1; i < n; i++) {
+      const t = solidAt(Math.round(a[0] + dx * i / n), Math.round(a[1] + dy * i / n), Math.round(a[2] + dz * i / n));
+      if (t && !ignore(t)) return true;
+    }
+    return false;
+  };
+  const roomy = (p, r) => {                          // no voxel within r cells of the camera
+    const cx = Math.round(p[0]), cy = Math.round(p[1]), cz = Math.round(p[2]);
+    for (let x = cx - r; x <= cx + r; x++) for (let y = cy - r; y <= cy + r; y++) for (let z = cz - r; z <= cz + r; z++) if (solidAt(x, y, z)) return false;
+    return true;
+  };
+  const search = S => {
+    let best = null;
+    for (let e = 0; e < S.el.length; e++) for (let k = 0; k <= S.steps; k++) for (const sg of k ? [1, -1] : [1]) {
+      const d = dirOf(S.az + sg * k * S.step, S.el[e]);
+      const [fit, tgt] = frame(S.target, d, S.pts), pos = at(tgt, d, Math.max(S.minD, fit * S.pad));
+      if (!roomy(pos, 3)) continue;
+      let seen = 0;
+      for (const s of S.see) if (!blocked(pos, s, S.ignore)) seen++;
+      const vis = seen / S.see.length, score = vis * 100 - k * S.step * S.turn - e * (S.tilt || 2.5);   // visibility first, then stay near the preferred angle
+      if (!best || score > best.score) best = { pos, target: tgt, vis, score };
+    }
+    if (best) return best;
+    const d = dirOf(S.az, 1.0), [fit, tgt] = frame(S.target, d, S.pts);                                  // nothing clear: look down from above
+    return { pos: at(tgt, d, Math.max(S.minD, fit * S.pad) * 1.2), target: tgt, vis: 0, score: -1 };
+  };
+
+  const P = W.pagoda, G = W.torii, hero = W.trees[0];
+  if (which === 1) {
+    const pts = [[0, P.top + 0.8, 0]], see = [[0, 4, 7.6], [0, 2.6, 9.6]];
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { pts.push([sx * 9.6, 0.5, sz * 9.6], [sx * 10, 9.5, sz * 10]); see.push([sx * 7.6, 5, sz * 7.6], [sx * 9.2, 2.8, sz * 9.2]); }
+    for (let y = 4; y < P.top; y += 3.5) see.push([0, y, 0]);
+    // from the pond side, a little above the lawn: the water lies low in the foreground and the doors face the camera
+    return search({ target: [0, P.top * 0.5, 0], pts, see, ignore: t => t === T.PAGODA || t === T.GLOW, az: W.side * 0.95, el: [0.3, 0.2, 0.42], step: 0.12, steps: 26, pad: 1.07, minD: 30, turn: 6 });
+  }
+  if (which === 2 && W.pond.cells.length) {
+    const cells = W.pond.cells, pts = [], see = [];
+    let cx = 0, cz = 0;
+    cells.forEach((c, i) => { cx += c.x; cz += c.z; pts.push([c.x, 0.5, c.z]); if (i % 4 === 0) see.push([c.x, 0.8, c.z]); });
+    if (W.bridge) pts.push([W.bridge.x, W.bridge.top + 2, W.bridge.z]);
+    return search({ target: [cx / cells.length, 0.4, cz / cells.length], pts, see, ignore: t => t === T.BRIDGE, az: W.pond.a, el: [0.6, 0.76, 0.48], step: 0.14, steps: 15, pad: 1.3, minD: 26, turn: 5, tilt: 7 });
+  }
+  if (which === 3) {
+    const pts = [[G.x - 6, 0.5, G.z], [G.x + 6, 0.5, G.z], [G.x - 6, G.top + 1, G.z], [G.x + 6, G.top + 1, G.z], [G.x, 0.5, G.z - 7], [G.x, 0.5, G.z + 3]];
+    const see = [[G.x, 9, G.z], [G.x - 4, 9, G.z], [G.x + 4, 9, G.z], [G.x, 6, G.z], [G.x - 3, 3, G.z], [G.x + 3, 3, G.z], [G.x - 3, 7, G.z], [G.x + 3, 7, G.z]];
+    // stand outside the rim on the gate's outer side, so the path and the pagoda line up through the gate
+    return search({ target: [G.x, 5, G.z - 1], pts, see, ignore: t => t === T.TORII, az: Math.sign(G.x || 1) * 0.42, el: [0.2, 0.3, 0.12], step: 0.1, steps: 9, pad: 1.5, minD: 26, turn: 12 });
+  }
+  if (which === 4 && hero) {
+    const r = hero.r + 1.2, ext = hero.top - hero.cy + 0.8, pts = [[hero.x, hero.base - 0.5, hero.z]];
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) pts.push([hero.cx + sx * r * 0.8, hero.cy + ext, hero.cz + sz * r * 0.8], [hero.cx + sx * r, hero.cy - ext * 0.6, hero.cz + sz * r]);
+    // sample the whole crown and the trunk densely, so even thin things in the way (bamboo, a lantern) count against a direction
+    const see = [[hero.cx, hero.cy, hero.cz], [hero.cx, hero.top, hero.cz], [hero.x, hero.base + 1, hero.z], [hero.x, hero.base + 3, hero.z]];
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4, sx = Math.sin(a) * r, sz = Math.cos(a) * r;
+      see.push([hero.cx + sx * 0.75, hero.cy, hero.cz + sz * 0.75], [hero.cx + sx * 0.45, hero.cy + ext * 0.55, hero.cz + sz * 0.45], [hero.cx + sx * 0.6, hero.cy - ext * 0.45, hero.cz + sz * 0.6]);
+    }
+    const az = Math.atan2(hero.cx, hero.cz);
+    return search({ target: [hero.cx, hero.cy - 1, hero.cz], pts, see, ignore: t => t === hero.tag, az: az + (angDiff(az, W.pond.a) > 0 ? 0.5 : -0.5), el: [0.2, 0.32, 0.1], step: 0.14, steps: 22, pad: 1.3, minD: 20, turn: 5 });
+  }
+  const d = dirOf(W.side * 0.5, 0.42), [fit, tgt] = frame([0, 6, 0], d, W.fitPts);                       // overview: the whole island, pond side forward
+  return { pos: at(tgt, d, fit), target: tgt, vis: 1, score: 100 };
+}
+//#endregion world
+
+/* ════════════════════════════════════════════════════════════════════════════
+   2. renderer — scene, sky, lights, the shared cube and its InstancedMeshes
+   ════════════════════════════════════════════════════════════════════════════ */
+const FOV = 40;
+const $ = id => document.getElementById(id);
+const canvas = $('view');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });
+} catch (err) {
+  window.__sakuraFail('WebGL is not available in this browser, so the garden cannot be drawn.');
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));                 // pixel ratio capped at 2
+renderer.setSize(window.innerWidth, window.innerHeight, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xcfe9f7);
+scene.fog = new THREE.Fog(0xcfe9f7, 150, 640);
+const camera = new THREE.PerspectiveCamera(FOV, window.innerWidth / window.innerHeight, 0.5, 1800);
+camera.position.set(60, 50, 90);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.07;
+controls.autoRotate = false; controls.autoRotateSpeed = 0.6;
+controls.minDistance = 8; controls.maxDistance = 300; controls.maxPolarAngle = Math.PI * 0.94; controls.zoomSpeed = 0.9;
+
+// lights: sky/ground fill, a flat ambient floor, the sun, the moon, and three warm lamps for the night
+const hemi = new THREE.HemisphereLight(0xffffff, 0x777777, 1), ambient = new THREE.AmbientLight(0xffffff, 0.25);
+const sun = new THREE.DirectionalLight(0xffffff, 2.2), moon = new THREE.DirectionalLight(0x9db8ff, 0);
+for (const L of [sun, moon]) {
+  L.castShadow = true;
+  L.shadow.mapSize.set(2048, 2048);
+  Object.assign(L.shadow.camera, { left: -42, right: 42, top: 46, bottom: -42, near: 1, far: 260 });
+  L.shadow.camera.updateProjectionMatrix();
+  L.shadow.bias = -0.0005; L.shadow.normalBias = 0.06;
+  L.shadow.autoUpdate = false;                       // the world is static, so shadow maps are redrawn only when a light or the world changes
+  L.shadow.needsUpdate = true;
+  L.target.position.set(0, 4, 0);
+  scene.add(L, L.target);
+}
+scene.add(hemi, ambient);
+const lamps = [0, 1, 2].map(() => { const p = new THREE.PointLight(0xffb866, 0, 22, 1.6); scene.add(p); return p; });
+let shadowDirty = true;
+function refreshShadows() {
+  if (!shadowDirty) return;
+  shadowDirty = false;
+  for (const L of [sun, moon]) if (L.castShadow && L.intensity > 0.01) L.shadow.needsUpdate = true;
+}
+
+// sky dome: zenith → horizon → nadir gradient with a soft glow around the sun; it follows the camera
+const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+  uniforms: {
+    uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uBottom: { value: new THREE.Color() },
+    uGlow: { value: new THREE.Color() }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+  },
+  vertexShader: `
+    varying vec3 vDir;
+    void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform vec3 uTop, uHorizon, uBottom, uGlow, uSunDir;
+    varying vec3 vDir;
+    void main() {
+      vec3 d = normalize(vDir);
+      vec3 c = d.y >= 0.0 ? mix(uHorizon, uTop, pow(d.y, 0.55)) : mix(uHorizon, uBottom, pow(-d.y, 0.6));
+      float g = max(dot(d, uSunDir), 0.0);
+      c += uGlow * (pow(g, 40.0) * 0.5 + pow(g, 5.0) * 0.22);
+      gl_FragColor = vec4(c, 1.0);
+      #include <colorspace_fragment>
+    }`,
+}));
+sky.renderOrder = -10; sky.frustumCulled = false;
+scene.add(sky);
+
+// stars: a real colour attribute, so vertexColors is correct here (unlike on the voxel meshes below)
+const stars = (() => {
+  const r = mulberry32(0x57a125), n = 560, pos = new Float32Array(n * 3), tint = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const y = r() * 1.75 - 0.75, a = r() * TAU, h = Math.sqrt(1 - y * y), b = 0.3 + r() * r() * 0.7;
+    pos.set([Math.cos(a) * h * 760, y * 760, Math.sin(a) * h * 760], i * 3);
+    tint.set([b, b, b * (0.85 + r() * 0.3)], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(tint, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+  p.renderOrder = -9; p.frustumCulled = false;
+  return p;
+})();
+scene.add(stars);
+
+// square, pixel-art sun and moon — this is a voxel world
+const pixelTexture = (size, draw) => {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+};
+const disc = (size, texture) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, fog: false }));
+  m.renderOrder = -8; m.frustumCulled = false;
+  scene.add(m);
+  return m;
+};
+const sunDisc = disc(58, pixelTexture(8, (g, s) => { g.fillStyle = '#ffeaa8'; g.fillRect(0, 0, s, s); g.fillStyle = '#fffbe8'; g.fillRect(1, 1, s - 2, s - 2); }));
+const moonDisc = disc(46, pixelTexture(8, (g, s) => {
+  g.fillStyle = '#eef2ff'; g.fillRect(0, 0, s, s);
+  g.fillStyle = '#c9d2ee'; for (const [x, y, w, h] of [[1, 1, 2, 2], [5, 2, 2, 1], [4, 5, 3, 2], [1, 5, 1, 1]]) g.fillRect(x, y, w, h);
+}));
+
+// ── the one shared cube ─────────────────────────────────────────────────────
+const BOX = new THREE.BoxGeometry(1, 1, 1);
+// None of these materials set `vertexColors`. An InstancedMesh uses its instanceColor automatically; switching
+// vertexColors on would multiply by a geometry colour attribute BoxGeometry does not have — every voxel turns black.
+const mat = {
+  solid: new THREE.MeshLambertMaterial(),
+  glow: new THREE.MeshBasicMaterial(),
+  // Koi and lily pads stamp the stencil buffer and the water colour pass skips those pixels, so the fish stay a clear
+  // orange instead of being washed to grey by 60 % blue laid over them.
+  water: new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.62, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.NotEqualStencilFunc }),
+  waterDepth: new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true }),
+  cloud: new THREE.MeshLambertMaterial(),
+  prop: new THREE.MeshLambertMaterial({ stencilWrite: true, stencilRef: 1, stencilZPass: THREE.ReplaceStencilOp }),
+  petal: new THREE.MeshLambertMaterial({ emissive: 0x2a0f1a }),
+};
+const voxelMaterials = [mat.solid, mat.glow, mat.water, mat.cloud, mat.prop, mat.petal];   // what the Wireframe toggle flips
+const tmpColor = new THREE.Color();
+
+/** InstancedMesh of unit cubes from packed positions + linear colours, with `extra` spare instances at the end. */
+function voxelMesh(data, material, extra = 0) {
+  const cap = Math.max(1, data.n + extra), m = new THREE.InstancedMesh(BOX, material, cap), M = m.instanceMatrix.array;
+  for (let i = 0; i < data.n; i++) {
+    const o = i * 16, p = i * 3;
+    M[o] = M[o + 5] = M[o + 10] = M[o + 15] = 1;
+    M[o + 12] = data.pos[p]; M[o + 13] = data.pos[p + 1]; M[o + 14] = data.pos[p + 2];
+  }
+  const c = new Float32Array(cap * 3);
+  c.set(data.col);
+  m.instanceColor = new THREE.InstancedBufferAttribute(c, 3);
+  m.count = data.n + extra;
+  return m;
+}
+const paint = (mesh, i, hex) => { tmpColor.setHex(hex); mesh.instanceColor.array.set([tmpColor.r, tmpColor.g, tmpColor.b], i * 3); };
+
+const worldGroup = new THREE.Group(), cloudGroup = new THREE.Group();
+scene.add(worldGroup, cloudGroup);
+let W = null, solidMesh, glowMesh, waterMesh, waterDepthMesh, cloudMesh, propMesh;
+let drops = [], fish = [];
+const KOI_W = [0.46, 0.6, 0.62, 0.56, 0.46, 0.34, 0.22, 0.1], KOI_H = [0.34, 0.42, 0.44, 0.4, 0.34, 0.27, 0.22, 0.42];   // head → tail fin
+const KOI_LOOK = [                                   // three orange koi: kohaku, plain hi-goi, sanke
+  [0xfff1e0, 0xff7a1c, 0xf2511b, 0xfff1e0, 0xff7a1c, 0xfff1e0, 0xff8a2a, 0xffe2c4],
+  [0xff8a2a, 0xff7a1c, 0xff7a1c, 0xf2511b, 0xff7a1c, 0xff8a2a, 0xff9a3a, 0xffc890],
+  [0xff7a1c, 0x2a2522, 0xff7a1c, 0xfff1e0, 0x2a2522, 0xff7a1c, 0xff8a2a, 0xffe2c4],
+];
+
+/** Generate a world for `seed` and (re)build every mesh that depends on it. */
+function buildWorld(seed) {
+  W = generateWorld(seed, 16000);
+  for (const g of [worldGroup, cloudGroup]) for (const m of [...g.children]) { g.remove(m); m.dispose(); }
+  const fx = mulberry32(seed ^ 0x9e3779b9);
+
+  solidMesh = voxelMesh(W.solid, mat.solid);
+  solidMesh.castShadow = solidMesh.receiveShadow = true;
+  glowMesh = voxelMesh(W.glow, mat.glow);
+  cloudMesh = voxelMesh(W.cloud, mat.cloud);
+
+  // water: surface voxels plus the waterfall's falling drops, drawn in two passes (depth first, then colour) so
+  // neighbouring translucent cubes do not show their shared inner faces
+  drops = [];
+  for (const f of W.falls) for (let i = 0, n = Math.round(f.len * 0.75); i < n; i++)
+    drops.push({ x: f.x, z: f.z, len: f.len, ph: (i + fx() * 0.6) / n, sp: 0.5 + fx() * 0.25, jx: fx() - 0.5, jz: fx() - 0.5 });
+  waterMesh = voxelMesh(W.water, mat.water, drops.length);
+  drops.forEach((d, i) => paint(waterMesh, W.water.n + i, fx() < 0.5 ? 0xbfe6ff : 0x8fd0f6));
+  waterMesh.receiveShadow = true; waterMesh.frustumCulled = false; waterMesh.renderOrder = 2;
+  waterDepthMesh = new THREE.InstancedMesh(BOX, mat.waterDepth, waterMesh.count);
+  waterDepthMesh.instanceMatrix = waterMesh.instanceMatrix;
+  waterDepthMesh.frustumCulled = false; waterDepthMesh.renderOrder = 1;
+
+  // props: koi (KOI_SEG scaled cubes each), lily pads and their flowers
+  const nProp = W.koi.length * KOI_SEG + W.pads.length + W.pads.filter(p => p.flower).length;
+  propMesh = voxelMesh({ n: 0, pos: [], col: [] }, mat.prop, nProp);
+  propMesh.frustumCulled = false;
+  fish = W.koi.map((k, fi) => {
+    const n = k.pts.length / 2, cum = new Float32Array(n + 1);
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n; cum[i + 1] = cum[i] + Math.hypot(k.pts[j * 2] - k.pts[i * 2], k.pts[j * 2 + 1] - k.pts[i * 2 + 1]); }
+    for (let s = 0; s < KOI_SEG; s++) paint(propMesh, fi * KOI_SEG + s, mixHex(KOI_LOOK[k.look % 3][s], 0x3f86d0, 0.14));   // a touch of water blue
+    return { pts: k.pts, n, cum, len: cum[n], dir: k.dir, speed: k.speed, s: k.phase * cum[n], first: fi * KOI_SEG };
+  });
+  let pi = W.koi.length * KOI_SEG;
+  for (const p of W.pads) { p.i = pi; paint(propMesh, pi++, fx() < 0.5 ? 0x4f9a48 : 0x5aa850); if (p.flower) { p.fi = pi; paint(propMesh, pi++, fx() < 0.6 ? 0xf7a8c8 : 0xfff3f7); } }
+
+  worldGroup.add(solidMesh, glowMesh, waterDepthMesh, waterMesh, propMesh);
+  cloudGroup.add(cloudMesh);
+
+  // lamps: one at the pagoda door, two in the lanterns by the steps
+  lamps[0].position.set(0, 5, 8.6);
+  for (let i = 1; i < 3; i++) { const l = W.lanterns[i - 1]; lamps[i].userData.live = !!l; if (l) lamps[i].position.set(l.x, l.y + 0.2, l.z + 0.8); }
+  lamps[0].userData.live = true;
+  shadowDirty = true;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   3. life — water, koi, petals, fireflies
+   ════════════════════════════════════════════════════════════════════════════ */
+const state = {
+  seed: 0, time: 9.5, playing: false, speed: 0.6, petals: 1200, wind: 0.35,
+  autoRotate: false, shadows: true, fireflies: true, waterAnim: true, wireframe: false,
+};
+let fxRng = mulberry32(1);                           // runtime randomness (petal respawns) — still mulberry32, reseeded per world
+let animT = 0, waterT = 0;                           // animation clocks in seconds; fed by a clamped dt so a hidden tab cannot make them jump
+
+const WATER_SINK = 0.28;                             // water sits a little below the banks
+const wave = (x, z, t) => Math.sin(t * 1.5 + x * 0.55 + z * 0.4) * 0.07 + Math.sin(t * 2.3 - x * 0.3 + z * 0.7) * 0.04;
+const writeBox = (M, i, x, y, z, sx, sy, sz) => {
+  const o = i * 16;
+  M.fill(0, o, o + 16);
+  M[o] = sx; M[o + 5] = sy; M[o + 10] = sz; M[o + 15] = 1; M[o + 12] = x; M[o + 13] = y; M[o + 14] = z;
+};
+/** Pond surface bobbing on two crossing sine waves, the waterfall's drops, and the lily pads riding the same wave. */
+function animateWater(t) {
+  const M = waterMesh.instanceMatrix.array, P = W.water.pos, n = W.water.n;
+  for (let i = 0; i < n; i++) M[i * 16 + 13] = P[i * 3 + 1] - WATER_SINK + wave(P[i * 3], P[i * 3 + 2], t);
+  for (let i = 0; i < drops.length; i++) {
+    const d = drops[i], o = (n + i) * 16, u = (d.ph + t * d.sp * 0.4) % 1, s = 0.95 - 0.72 * u * u;   // each drop thins into spray as it falls
+    M[o] = M[o + 10] = s * 0.92; M[o + 5] = s; M[o + 15] = 1;
+    M[o + 12] = d.x + d.jx * u * 0.9; M[o + 13] = 0.15 - Math.pow(u, 1.5) * d.len; M[o + 14] = d.z + d.jz * u * 0.9;
+  }
+  waterMesh.instanceMatrix.needsUpdate = true;
+  const Q = propMesh.instanceMatrix.array;
+  for (const p of W.pads) {
+    const y = 0.26 + wave(p.x, p.z, t);
+    writeBox(Q, p.i, p.x, y, p.z, 0.86, 0.07, 0.86);
+    if (p.flower) writeBox(Q, p.fi, p.x, y + 0.2, p.z, 0.34, 0.3, 0.34);
+  }
+  propMesh.instanceMatrix.needsUpdate = true;
+}
+
+/** Koi: each body segment sits a little further back along the fish's loop, so the body bends through the turns. */
+function swimKoi(t, dt) {
+  const M = propMesh.instanceMatrix.array;
+  for (const f of fish) {
+    f.s = ((f.s + f.dir * f.speed * dt) % f.len + f.len) % f.len;
+    for (let k = 0; k < KOI_SEG; k++) {
+      const s = ((f.s - f.dir * k * 0.4) % f.len + f.len) % f.len;
+      let lo = 0, hi = f.n;
+      while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (f.cum[mid] <= s) lo = mid; else hi = mid; }
+      const j = (lo + 1) % f.n, u = (s - f.cum[lo]) / Math.max(1e-6, f.cum[lo + 1] - f.cum[lo]);
+      const ax = f.pts[lo * 2], az = f.pts[lo * 2 + 1], bx = f.pts[j * 2], bz = f.pts[j * 2 + 1];
+      let dx = (bx - ax) * f.dir, dz = (bz - az) * f.dir;
+      const dl = Math.hypot(dx, dz) || 1;
+      dx /= dl; dz /= dl;
+      const beat = t * 5 * f.speed - k * 0.85, sway = Math.sin(beat) * 0.03 * k;                      // the tail swings wider than the head
+      const yaw = Math.atan2(dx, dz) + Math.cos(beat) * 0.05 * k, c = Math.cos(yaw), sn = Math.sin(yaw);
+      const o = (f.first + k) * 16, w = KOI_W[k], h = KOI_H[k], l = 0.44;
+      M[o] = c * w; M[o + 1] = 0; M[o + 2] = -sn * w; M[o + 3] = 0;
+      M[o + 4] = 0; M[o + 5] = h; M[o + 6] = 0; M[o + 7] = 0;
+      M[o + 8] = sn * l; M[o + 9] = 0; M[o + 10] = c * l; M[o + 11] = 0;
+      M[o + 12] = lerp(ax, bx, u) + dz * sway; M[o + 13] = -0.46 + Math.sin(t * 0.8 + f.first) * 0.05; M[o + 14] = lerp(az, bz, u) - dx * sway; M[o + 15] = 1;
+    }
+  }
+  propMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ── petals: small flat boxes (the shared cube, scaled), one InstancedMesh, structure-of-arrays state ─────
+const PETAL_MAX = 3000;
+const petals = new THREE.InstancedMesh(BOX, mat.petal, PETAL_MAX);
+petals.frustumCulled = false;
+petals.count = state.petals;
+petals.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(PETAL_MAX * 3), 3);
+scene.add(petals);
+const pe = {};
+for (const k of ['x', 'y', 'z', 'vy', 'ph', 'fr', 'ax', 'ay', 'az', 'ang', 'spin', 'rest', 'size']) pe[k] = new Float32Array(PETAL_MAX);
+const windVec = { x: 0, z: 0 };
+function updateWind(t) {                             // a slowly veering breeze with gusts; the Wind slider scales it
+  const a = 1.1 + Math.sin(t * 0.07) * 0.6 + Math.sin(t * 0.031 + 1.3) * 0.35;
+  const v = state.wind * 5.5 * (0.7 + 0.3 * Math.sin(t * 0.43) * Math.sin(t * 0.17 + 2));
+  windVec.x = Math.sin(a) * v; windVec.z = Math.cos(a) * v;
+}
+/** (Re)start petal i above the island: usually out of a cherry crown, sometimes from high overhead. */
+function spawnPetal(i, scatter) {
+  const tree = W.trees.length && fxRng() < 0.8 ? W.trees[(fxRng() * W.trees.length) | 0] : null, a = fxRng() * TAU;
+  if (tree) {
+    const d = Math.sqrt(fxRng()) * (tree.r + 1.5);
+    pe.x[i] = tree.cx + Math.sin(a) * d; pe.z[i] = tree.cz + Math.cos(a) * d; pe.y[i] = lerp(tree.cy - 1, tree.top + 1.5, fxRng());
+  } else {
+    const d = Math.sqrt(fxRng()) * 21;
+    pe.x[i] = Math.sin(a) * d; pe.z[i] = Math.cos(a) * d; pe.y[i] = 18 + fxRng() * 22;
+  }
+  pe.x[i] -= windVec.x * 1.5; pe.z[i] -= windVec.z * 1.5;                                             // start upwind so they drift across the garden
+  if (scatter) pe.y[i] = lerp(1.5, pe.y[i], fxRng());                                                 // first fill: anywhere along the fall
+  pe.vy[i] = 1.1 + fxRng() * 1.3; pe.ph[i] = fxRng() * TAU; pe.fr[i] = 0.9 + fxRng() * 1.4;
+  const u = fxRng() * 2 - 1, th = fxRng() * TAU, s = Math.sqrt(1 - u * u);
+  pe.ax[i] = s * Math.cos(th); pe.ay[i] = u; pe.az[i] = s * Math.sin(th);
+  pe.ang[i] = fxRng() * TAU; pe.spin[i] = (1.2 + fxRng() * 3.2) * (fxRng() < 0.5 ? -1 : 1);
+  pe.rest[i] = 0; pe.size[i] = 0.75 + fxRng() * 0.5;
+}
+function seedPetals() {
+  const tones = [0xffd3e2, 0xfbb6cf, 0xf8a0c0, 0xffeef4];
+  for (let i = 0; i < PETAL_MAX; i++) { spawnPetal(i, true); paint(petals, i, tones[(fxRng() * 4) | 0]); }
+  petals.instanceColor.needsUpdate = true;
+}
+/** Each petal tumbles about its own axis, flutters, drifts with the wind; it settles for a few seconds where it lands and
+    respawns above the island — at once if the wind carried it over the rim and it fell past the bottom. */
+function updatePetals(dt, t) {
+  const n = petals.count, M = petals.instanceMatrix.array, lowFloor = W.petalFloor, roof = W.petalRoof, bottom = W.minY - 6;
+  for (let i = 0; i < n; i++) {
+    const o = i * 16, sz = pe.size[i];
+    let c, s;
+    if (pe.rest[i] > 0) {                            // lying flat where it landed, shrinking away at the end
+      pe.rest[i] -= dt;
+      if (pe.rest[i] <= 0) { spawnPetal(i, false); continue; }
+      const k = Math.min(1, pe.rest[i] / 0.6) * sz;
+      c = Math.cos(pe.ang[i]); s = Math.sin(pe.ang[i]);
+      M[o] = c * 0.36 * k; M[o + 1] = 0; M[o + 2] = -s * 0.36 * k;
+      M[o + 4] = 0; M[o + 5] = 0.05 * k; M[o + 6] = 0;
+      M[o + 8] = s * 0.26 * k; M[o + 9] = 0; M[o + 10] = c * 0.26 * k;
+      M[o + 12] = pe.x[i]; M[o + 13] = pe.y[i]; M[o + 14] = pe.z[i]; M[o + 15] = 1;
+      continue;
+    }
+    const flutter = Math.sin(t * pe.fr[i] + pe.ph[i]);
+    pe.x[i] += (windVec.x + flutter * 0.6) * dt;
+    pe.z[i] += (windVec.z + Math.cos(t * pe.fr[i] * 0.8 + pe.ph[i]) * 0.6) * dt;
+    pe.y[i] -= pe.vy[i] * (0.8 + 0.35 * flutter) * dt;
+    pe.ang[i] += pe.spin[i] * dt;
+    const cx = Math.round(pe.x[i]), cz = Math.round(pe.z[i]), y = pe.y[i];
+    if (Math.abs(cx) <= GX && Math.abs(cz) <= GX) {
+      const ci = (cz + GX) * SX + cx + GX, hi = roof[ci], lo = lowFloor[ci];
+      const land = y <= hi + 0.04 && y > hi - 0.8 ? hi : y <= lo + 0.04 && y > lo - 0.8 ? lo : -1e9;   // only a surface it has just crossed
+      if (land > -1e8) { pe.y[i] = land + 0.04; pe.rest[i] = 2.5 + (i % 7) * 0.6; }
+    }
+    if (y < bottom || Math.abs(pe.x[i]) > 70 || Math.abs(pe.z[i]) > 70) { spawnPetal(i, false); continue; }
+    c = Math.cos(pe.ang[i]); s = Math.sin(pe.ang[i]);
+    const k = 1 - c, ax = pe.ax[i], ay = pe.ay[i], az = pe.az[i], sx = 0.36 * sz, sy = 0.05 * sz, sw = 0.26 * sz;   // axis-angle → matrix
+    M[o] = (k * ax * ax + c) * sx; M[o + 1] = (k * ax * ay + s * az) * sx; M[o + 2] = (k * ax * az - s * ay) * sx;
+    M[o + 4] = (k * ax * ay - s * az) * sy; M[o + 5] = (k * ay * ay + c) * sy; M[o + 6] = (k * ay * az + s * ax) * sy;
+    M[o + 8] = (k * ax * az + s * ay) * sw; M[o + 9] = (k * ay * az - s * ax) * sw; M[o + 10] = (k * az * az + c) * sw;
+    M[o + 12] = pe.x[i]; M[o + 13] = pe.y[i]; M[o + 14] = pe.z[i]; M[o + 15] = 1;
+  }
+  petals.instanceMatrix.needsUpdate = true;
+}
+
+// ── fireflies: additive glowing points, each wandering around a home near water, trees or lawn ───────────
+const flyPos = new Float32Array(FLY_COUNT * 3), flyTint = new Float32Array(FLY_COUNT * 3), flyPar = new Float32Array(FLY_COUNT * 6);
+const flyGeo = new THREE.BufferGeometry();
+flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos, 3));
+flyGeo.setAttribute('color', new THREE.BufferAttribute(flyTint, 3));
+const glowTexture = pixelTexture(64, (g, s) => {
+  const grad = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.22, 'rgba(255,255,255,.75)'); grad.addColorStop(0.55, 'rgba(255,255,255,.16)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, s, s);
+});
+glowTexture.magFilter = glowTexture.minFilter = THREE.LinearFilter;
+const fireflies = new THREE.Points(flyGeo, new THREE.PointsMaterial({
+  size: 2.1, map: glowTexture, vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+}));
+fireflies.frustumCulled = false; fireflies.renderOrder = 3; fireflies.visible = false;
+scene.add(fireflies);
+function seedFireflies() {
+  for (let i = 0; i < FLY_COUNT; i++) flyPar.set([fxRng() * TAU, fxRng() * TAU, fxRng() * TAU, 0.22 + fxRng() * 0.4, 1.2 + fxRng() * 2, 1.4 + fxRng() * 2.6], i * 6);
+}
+function updateFireflies(t) {
+  if (!fireflies.visible) return;
+  const H = W.flies;
+  for (let i = 0; i < FLY_COUNT; i++) {
+    const p = i * 6, q = i * 3, w = flyPar[p + 3], r = flyPar[p + 4];
+    flyPos[q] = H[q] + Math.sin(t * w + flyPar[p]) * r + Math.sin(t * w * 0.37 + flyPar[p + 1]) * r * 0.5;
+    flyPos[q + 1] = H[q + 1] + (0.5 + 0.5 * Math.sin(t * w * 0.8 + flyPar[p + 1])) * 1.6 + Math.sin(t * w * 1.9 + flyPar[p + 2]) * 0.2;
+    flyPos[q + 2] = H[q + 2] + Math.cos(t * w * 0.9 + flyPar[p + 2]) * r + Math.cos(t * w * 0.41 + flyPar[p]) * r * 0.5;
+    const b = 0.3 + 0.7 * Math.pow(0.5 + 0.5 * Math.sin(t * flyPar[p + 5] + flyPar[p]), 2);          // slow blink
+    flyTint[q] = 0.8 * b; flyTint[q + 1] = b; flyTint[q + 2] = 0.34 * b;
+  }
+  flyGeo.attributes.position.needsUpdate = flyGeo.attributes.color.needsUpdate = true;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   4. clock — one 24 h value drives sun, moon, sky, fog, fill light, lamps, stars and fireflies
+   ════════════════════════════════════════════════════════════════════════════ */
+const PHASES = {
+  night: { top: 0x060a1c, horizon: 0x16213e, bottom: 0x0a0f24, sunGlow: 0x000000, sun: 0xff9a5a, hemiSky: 0x3a4d86, hemiGround: 0x10131c, cloud: 0x566389,
+    sunI: 0, moonI: 1.05, hemiI: 0.7, amb: 0.17, stars: 1, fire: 1, lit: 1 },
+  dawn: { top: 0x4f78bd, horizon: 0xf8c09a, bottom: 0xb58aa6, sunGlow: 0xffb070, sun: 0xffb774, hemiSky: 0xcbb4c9, hemiGround: 0x5e4d47, cloud: 0xffd8c4,
+    sunI: 2.0, moonI: 0.05, hemiI: 0.95, amb: 0.3, stars: 0.12, fire: 0, lit: 0.4 },
+  day: { top: 0x5fa8e6, horizon: 0xcfe9f7, bottom: 0xa9d2ee, sunGlow: 0xfff2cc, sun: 0xfff7ea, hemiSky: 0xd3e8ff, hemiGround: 0x80906e, cloud: 0xffffff,
+    sunI: 2.3, moonI: 0, hemiI: 1.1, amb: 0.42, stars: 0, fire: 0, lit: 0 },
+  dusk: { top: 0x34437f, horizon: 0xf59468, bottom: 0x7d5680, sunGlow: 0xff8048, sun: 0xff8c4e, hemiSky: 0xb394bd, hemiGround: 0x4b3a45, cloud: 0xffb49c,
+    sunI: 1.9, moonI: 0.1, hemiI: 0.9, amb: 0.3, stars: 0.3, fire: 0, lit: 0.7 },   // fire 0: fireflies only start once dusk is over
+};
+const COLOR_KEYS = ['top', 'horizon', 'bottom', 'sunGlow', 'sun', 'hemiSky', 'hemiGround', 'cloud'], LEVEL_KEYS = ['sunI', 'moonI', 'hemiI', 'amb', 'stars', 'fire', 'lit'];
+for (const p of Object.values(PHASES)) for (const k of COLOR_KEYS) p[k] = new THREE.Color(p[k]);
+// hour → phase; between two keys the palettes are blended with a smoothstep
+const KEYS = [[0, 'night'], [4.6, 'night'], [6.0, 'dawn'], [6.8, 'dawn'], [8.6, 'day'], [16.4, 'day'], [18.0, 'dusk'], [18.7, 'dusk'], [20.2, 'night'], [24, 'night']];
+const now = { sunDir: new THREE.Vector3(), moonDir: new THREE.Vector3(), sunUp: 1, moonUp: 0 };
+for (const k of COLOR_KEYS) now[k] = new THREE.Color();
+const SUN_ALT = 62 * Math.PI / 180, MOON_ALT = 50 * Math.PI / 180, LIGHT_TARGET = new THREE.Vector3(0, 4, 0), lightDir = new THREE.Vector3();
+const GLOW_DAY = new THREE.Color(0.6, 0.52, 0.42), GLOW_NIGHT = new THREE.Color(1.55, 1.3, 0.9);
+
+function applyTime(h) {
+  state.time = h;
+  let i = 0;
+  while (i < KEYS.length - 2 && h >= KEYS[i + 1][0]) i++;
+  const A = PHASES[KEYS[i][1]], B = PHASES[KEYS[i + 1][1]], f = smooth(KEYS[i][0], KEYS[i + 1][0], h);
+  for (const k of COLOR_KEYS) now[k].lerpColors(A[k], B[k], f);
+  for (const k of LEVEL_KEYS) now[k] = lerp(A[k], B[k], f);
+
+  // the sun rises due east at 06:00, stands SUN_ALT high in the south at noon, sets due west at 18:00; the moon mirrors it
+  const ha = (h - 12) / 12 * Math.PI;
+  now.sunDir.set(-Math.sin(ha), Math.cos(ha) * Math.sin(SUN_ALT), Math.cos(ha) * Math.cos(SUN_ALT));
+  now.moonDir.set(Math.sin(ha), -Math.cos(ha) * Math.sin(MOON_ALT), -Math.cos(ha) * Math.cos(MOON_ALT));
+  now.sunUp = smooth(-0.05, 0.18, now.sunDir.y); now.moonUp = smooth(-0.05, 0.22, now.moonDir.y);
+  // The lights never rake lower than ~13°: at sunrise and sunset the discs sit on the horizon, but light that flat
+  // would put the whole garden in the shadow of its own rim.
+  sun.position.copy(LIGHT_TARGET).addScaledVector(lightDir.copy(now.sunDir).setY(Math.max(now.sunDir.y, 0.23)).normalize(), 130);
+  sun.color.copy(now.sun); sun.intensity = now.sunI * now.sunUp;
+  moon.position.copy(LIGHT_TARGET).addScaledVector(lightDir.copy(now.moonDir).setY(Math.max(now.moonDir.y, 0.23)).normalize(), 130);
+  moon.intensity = now.moonI * now.moonUp;
+  hemi.color.copy(now.hemiSky); hemi.groundColor.copy(now.hemiGround); hemi.intensity = now.hemiI;
+  ambient.intensity = now.amb;
+
+  scene.background.copy(now.horizon);                // sky background and fog share the horizon key colour
+  scene.fog.color.copy(now.horizon);
+  const U = sky.material.uniforms;
+  U.uTop.value.copy(now.top); U.uHorizon.value.copy(now.horizon); U.uBottom.value.copy(now.bottom);
+  U.uGlow.value.copy(now.sunGlow).multiplyScalar(smooth(-0.25, 0.1, now.sunDir.y));
+  U.uSunDir.value.copy(now.sunDir);
+  sunDisc.material.opacity = smooth(-0.14, 0.02, now.sunDir.y); sunDisc.visible = sunDisc.material.opacity > 0.01;
+  moonDisc.material.opacity = smooth(-0.14, 0.02, now.moonDir.y); moonDisc.visible = moonDisc.material.opacity > 0.01;
+  stars.material.opacity = now.stars; stars.visible = now.stars > 0.01;
+
+  mat.cloud.color.copy(now.cloud);
+  mat.glow.color.lerpColors(GLOW_DAY, GLOW_NIGHT, now.lit);                                           // paper windows by day, lamplight by night
+  for (const p of lamps) p.intensity = p.userData.live ? now.lit * 26 : 0;
+  fireflies.material.opacity = state.fireflies ? now.fire : 0;                                        // fades in after dusk, out before dawn
+  fireflies.visible = fireflies.material.opacity > 0.01;
+  shadowDirty = true;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   5. camera — presets are solved per world and per aspect ratio; flights are eased on wall-clock time
+   ════════════════════════════════════════════════════════════════════════════ */
+const panel = $('panel'), presetButtons = [...document.querySelectorAll('.presets button')];
+const frameInfo = { hx: 0.86, hy: 0.9 };
+/** Keep the picture centred in the area the panel leaves free: shift the projection instead of letting the UI cover the island. */
+function layoutFrame() {
+  const w = window.innerWidth, h = window.innerHeight, open = !panel.classList.contains('min'), box = panel.getBoundingClientRect();
+  const left = open && w >= 760 ? box.right + 6 : 0;                           // wide window: the panel takes a column on the left
+  const top = open && w < 760 && box.bottom < h * 0.62 ? box.bottom + 6 : 0;   // narrow window: it takes a band across the top
+  frameInfo.hx = (w - left) / w * 0.9; frameInfo.hy = (h - top) / h * 0.9;
+  camera.aspect = w / h;
+  if (left || top) camera.setViewOffset(w, h, -left / 2, -top / 2, w, h); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+const viewFor = i => solveView(W, i, camera.aspect, frameInfo.hx, frameInfo.hy, FOV);
+const sph = new THREE.Spherical(), tmpV = new THREE.Vector3();
+let flight = null, atView = -1;                      // atView: preset the camera is resting on (or flying to), -1 once the user takes over
+const markPreset = i => { atView = i; presetButtons.forEach((b, k) => b.classList.toggle('on', k === i)); };
+const settleControls = () => { controls.enableDamping = false; controls.update(); controls.enableDamping = true; };   // drop leftover inertia
+
+function goToView(i, instant) {
+  const v = viewFor(i);
+  markPreset(i);
+  settleControls();
+  if (instant) {
+    flight = null;
+    controls.target.fromArray(v.target); camera.position.fromArray(v.pos); camera.lookAt(controls.target);
+    return;
+  }
+  // Fly on an arc around the target rather than in a straight line, so the camera swings round the pagoda instead of through it.
+  const fromT = controls.target.clone(), toT = new THREE.Vector3().fromArray(v.target);
+  sph.setFromVector3(tmpV.copy(camera.position).sub(fromT));
+  const r0 = sph.radius, p0 = sph.phi, th0 = sph.theta;
+  sph.setFromVector3(tmpV.fromArray(v.pos).sub(toT));
+  const dTh = angDiff(sph.theta, th0);
+  flight = { t0: performance.now(), dur: 1200, fromT, toT, r0, r1: sph.radius, p0, p1: sph.phi, th0, dTh, lift: Math.min(14, Math.abs(dTh) * 7) };
+}
+function updateFlight() {
+  if (!flight) return;
+  // Progress comes from performance.now(), not from accumulated frame deltas: a throttled or background tab still arrives on time.
+  const k = clamp((performance.now() - flight.t0) / flight.dur, 0, 1), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  controls.target.lerpVectors(flight.fromT, flight.toT, e);
+  sph.set(lerp(flight.r0, flight.r1, e) + Math.sin(Math.PI * e) * flight.lift, lerp(flight.p0, flight.p1, e), flight.th0 + flight.dTh * e);
+  camera.position.setFromSpherical(sph).add(controls.target);
+  camera.lookAt(controls.target);
+  if (k >= 1) { flight = null; if (state.autoRotate) markPreset(-1); }
+}
+controls.addEventListener('start', () => { flight = null; markPreset(-1); });   // any drag or scroll hands control straight back
+
+/* ════════════════════════════════════════════════════════════════════════════
+   6. ui + loop
+   ════════════════════════════════════════════════════════════════════════════ */
+const ui = { time: $('time'), timeOut: $('timeOut'), play: $('play'), speed: $('speed'), petals: $('petals'), petalsOut: $('petalsOut'),
+  wind: $('wind'), windOut: $('windOut'), status: $('status'), seedTag: $('seedTag') };
+const clockText = h => { const m = Math.min(1440, Math.round(h * 60)); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+let fps = 0;
+function refreshStatus() {
+  const s = `voxels: ${W.count}   ${clockText(state.time)}   fps: ${fps}`;
+  if (s !== ui.status.textContent) ui.status.textContent = s;
+}
+function setTime(h, fromSlider) {
+  applyTime(h);
+  ui.timeOut.textContent = clockText(h);
+  if (!fromSlider) ui.time.value = h;
+  refreshStatus();
+}
+
+/** Grow a new island from `seed` without reloading: world, meshes, petals, fireflies, presets. */
+function plant(seed, first) {
+  state.seed = seed >>> 0;
+  fxRng = mulberry32(state.seed ^ 0x51ed270b);
+  buildWorld(state.seed);
+  waterDepthMesh.visible = !state.wireframe;
+  seedPetals(); seedFireflies();
+  animateWater(waterT); swimKoi(animT, 0);
+  if (first) state.time = W.side > 0 ? 9.5 : 14.5;   // open with the sun on the side the overview looks from
+  setTime(state.time);
+  ui.seedTag.textContent = 'seed ' + state.seed.toString(16).toUpperCase().padStart(8, '0');
+  goToView(0, first);
+}
+
+ui.time.addEventListener('input', () => setTime(parseFloat(ui.time.value), true));
+ui.play.addEventListener('click', () => {
+  state.playing = !state.playing;
+  ui.play.textContent = state.playing ? '❚❚ Pause cycle' : '▶ Play cycle';
+  ui.play.classList.toggle('on', state.playing);
+  ui.play.setAttribute('aria-pressed', String(state.playing));
+});
+ui.speed.addEventListener('input', () => { state.speed = parseFloat(ui.speed.value); });               // hours of garden time per second
+ui.petals.addEventListener('input', () => { state.petals = parseInt(ui.petals.value, 10); petals.count = state.petals; ui.petalsOut.textContent = state.petals; });
+ui.wind.addEventListener('input', () => { state.wind = parseFloat(ui.wind.value); ui.windOut.textContent = state.wind.toFixed(2); });
+$('autoRotate').addEventListener('change', e => { state.autoRotate = e.target.checked; if (state.autoRotate && !flight) markPreset(-1); });
+$('shadows').addEventListener('change', e => { state.shadows = e.target.checked; sun.castShadow = moon.castShadow = state.shadows; shadowDirty = true; });
+$('fireflies').addEventListener('change', e => { state.fireflies = e.target.checked; applyTime(state.time); });
+$('waterAnim').addEventListener('change', e => { state.waterAnim = e.target.checked; });
+$('wireframe').addEventListener('change', e => {
+  state.wireframe = e.target.checked;
+  for (const m of voxelMaterials) m.wireframe = state.wireframe;                                       // every voxel material, petals included
+  waterDepthMesh.visible = !state.wireframe;
+  shadowDirty = true;
+});
+presetButtons.forEach(b => b.addEventListener('click', () => goToView(Number(b.dataset.view))));
+window.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+  if (e.key >= '1' && e.key <= '5' && e.key.length === 1) { goToView(Number(e.key) - 1); e.preventDefault(); }
+});
+const DEFAULT_SEED = 0x109fb26f;                                                                       // opens on a balanced layout; any seed works (#seed=xxxxxxxx)
+const hashSeed = () => { const m = /seed=([0-9a-f]{1,8})\b/i.exec(location.hash); return m ? parseInt(m[1], 16) : null; };
+const seedRng = mulberry32((hashSeed() ?? DEFAULT_SEED) ^ 0xa5a5a5a5);                                 // new seeds come from the PRNG too
+$('regen').addEventListener('click', () => {
+  plant((seedRng() * 4294967296) >>> 0, false);
+  try { history.replaceState(null, '', '#seed=' + state.seed.toString(16).padStart(8, '0')); } catch (err) { /* file:// or sandboxed frame — the seed tag still shows it */ }
+});
+$('reset').addEventListener('click', () => goToView(0));
+$('fold').addEventListener('click', e => {
+  const min = panel.classList.toggle('min');
+  e.currentTarget.textContent = min ? '+' : '–';
+  e.currentTarget.setAttribute('aria-label', min ? 'Expand panel' : 'Collapse panel');
+  layoutFrame();
+  if (atView >= 0) goToView(atView);
+});
+window.addEventListener('hashchange', () => { const s = hashSeed(); if (s !== null && s !== state.seed) plant(s, false); });
+window.addEventListener('resize', () => {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  layoutFrame();
+  if (atView >= 0) goToView(atView, !flight);        // an untouched preset is re-framed for the new aspect ratio
+});
+
+let last = performance.now(), frames = 0, fpsSince = last;
+function frame() {
+  requestAnimationFrame(frame);
+  const t = performance.now(), real = Math.min((t - last) / 1000, 1), dt = Math.min(real, 0.1);
+  last = t;
+  frames++;
+  if (t - fpsSince >= 1000) { fps = Math.round(frames * 1000 / (t - fpsSince)); frames = 0; fpsSince = t; refreshStatus(); }   // once a second
+
+  animT += dt;                                       // motion uses a clamped step; the clock uses real time so a slow or throttled tab keeps pace
+  if (state.playing) setTime((state.time + real * state.speed) % 24);
+  updateFlight();
+  controls.autoRotate = state.autoRotate && !flight;
+  controls.update(dt);
+
+  updateWind(animT);
+  if (state.waterAnim) { waterT += dt; animateWater(waterT); }
+  swimKoi(animT, dt);
+  updatePetals(dt, animT);
+  updateFireflies(animT);
+  cloudGroup.rotation.y += dt * (0.004 + 0.02 * state.wind);                                           // the cloud deck drifts with the wind
+
+  sky.position.copy(camera.position); stars.position.copy(camera.position);
+  sunDisc.position.copy(camera.position).addScaledVector(now.sunDir, 800); sunDisc.lookAt(camera.position);
+  moonDisc.position.copy(camera.position).addScaledVector(now.moonDir, 800); moonDisc.lookAt(camera.position);
+  refreshShadows();
+  renderer.render(scene, camera);
+}
+
+// ── boot ────────────────────────────────────────────────────────────────────
+layoutFrame();
+plant(hashSeed() ?? DEFAULT_SEED, true);
+// Warm-up: draw one frame with the night-only objects switched on (they are fully transparent at this hour), so their
+// shaders and GPU pipelines exist before dusk instead of hitching the first time they appear.
+stars.visible = fireflies.visible = sunDisc.visible = moonDisc.visible = true;
+renderer.compile(scene, camera);
+renderer.render(scene, camera);
+applyTime(state.time);
+frame();                                             // draw the first frame synchronously, then drop the loading veil (never wait on rAF for that)
+$('boot').remove();
+window.__sakuraReady = true;
+window.__sakura = { state, camera, controls, renderer, scene, viewFor, goToView, plant, get world() { return W; }, get flying() { return !!flight; } };   // console/debug handle
+</script>
+</body>
+</html>
